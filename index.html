@@ -1,0 +1,1364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tarai Gold HR Dashboard — Final v21</title>
+<!-- Firebase: replace the placeholder config below with your HR Firebase project config. -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
+$('closeHistory')?.addEventListener('click',closeApplicationHistory);$('historyOverlay')?.addEventListener('click',e=>{if(e.target.id==='historyOverlay')closeApplicationHistory()});
+</script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { getFirestore, doc, getDoc, getDocs, collection, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAvWI78sIvuXmta72gjKj9rMPsHUHubSwg",
+    authDomain: "tarai-gold-hr-dashboard.firebaseapp.com",
+    projectId: "tarai-gold-hr-dashboard",
+    storageBucket: "tarai-gold-hr-dashboard.firebasestorage.app",
+    messagingSenderId: "708558217185",
+    appId: "1:708558217185:web:3985c5b77230f7a2c93ca0"
+  };
+
+  window.hrFirebase = { ready:false };
+  window.addEventListener('DOMContentLoaded', async () => {
+    const gate = document.getElementById('loginGate');
+    const app = document.getElementById('dashboardApp');
+    const form = document.getElementById('loginForm');
+    const emailEl = document.getElementById('loginEmail');
+    const passEl = document.getElementById('loginPassword');
+    const err = document.getElementById('loginError');
+    const btn = document.getElementById('loginBtn');
+
+    function setError(m){ err.textContent=m; err.style.display=m?'block':'none'; }
+    function setBusy(v){ btn.disabled=v; btn.textContent=v?'Signing in…':'Sign in'; }
+
+    if(firebaseConfig.apiKey.startsWith('PASTE_')) {
+      setError('Firebase is not configured yet. Add the HR Firebase project configuration in this file.');
+      return;
+    }
+
+    try {
+      const firebaseApp = initializeApp(firebaseConfig);
+      const auth = getAuth(firebaseApp);
+      const db = getFirestore(firebaseApp);
+
+      // Keep the HR login for the current browser session.
+      // This survives normal page refreshes while avoiding long-term browser persistence.
+      await setPersistence(auth, browserSessionPersistence);
+
+      window.hrFirebase = { ready:true, auth, db };
+
+      // Do not retain credentials in the page after a load/sign-out.
+      emailEl.value = '';
+      passEl.value = '';
+
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault(); setError(''); setBusy(true);
+        const email = emailEl.value.trim();
+        const password = passEl.value;
+        if(!email || !password){ setBusy(false); setError('Enter your HR email address and password.'); return; }
+        try { await signInWithEmailAndPassword(auth, email, password); }
+        catch(e){ console.error('Login error:', e); setBusy(false); setError(`Login failed: ${e.code || 'unknown'} — ${e.message || 'No error message returned'}`); }
+      });
+
+      onAuthStateChanged(auth, async (user)=>{
+        if(!user){ gate.style.display='flex'; app.style.display='none'; setBusy(false); return; }
+        try {
+          const snap = await getDoc(doc(db,'hrUsers',user.uid));
+          if(!snap.exists() || snap.data().active !== true){
+            await signOut(auth); setError('This account is not authorized to use the HR dashboard.'); return;
+          }
+          const profile = snap.data();
+          window.hrFirebase.user = user; window.hrFirebase.profile = profile;
+          document.getElementById('profileName').textContent = profile.name || user.email;
+          document.getElementById('profileRole').textContent = profile.designation || profile.role || 'Authorized User';
+          document.getElementById('profileAvatar').textContent = (profile.name || user.email).split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+          if (typeof window.updateDashboardGreeting === 'function') window.updateDashboardGreeting();
+          gate.style.display='none'; app.style.display='block';
+          window.dispatchEvent(new Event('hr-authorized'));
+        } catch(e){ console.error('HR verification error:', e); try { await signOut(auth); } catch(_) {} setError(`Firestore verification failed: ${e.code || 'unknown'} — ${e.message || 'No error message returned'}`); }
+      });
+
+      document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+        try { await signOut(auth); } finally {
+          emailEl.value=''; passEl.value=''; setError('');
+          gate.style.display='flex'; app.style.display='none';
+        }
+      });
+    } catch(e) { console.error('Firebase initialization error:', e); setError(`Firebase initialization failed: ${e.code || 'unknown'} — ${e.message || 'No error message returned'}`); }
+  });
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--yellow:#F8EC36;--green:#1A3C2A;--green2:#2E6B44;--green3:#4A9B63;--pale:#EAF4EE;--bg:#F5F7F5;--card:#fff;--text:#17201a;--muted:#778078;--line:#E5EAE5;--red:#C9483E;--blue:#4267A9;--orange:#A77A00;--shadow:0 8px 30px rgba(26,60,42,.06);--r:16px}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Poppins,system-ui,sans-serif;background:var(--bg);color:var(--text)}button,input,select{font:inherit}button{cursor:pointer}.app{display:flex;min-height:100vh}.sidebar{position:fixed;inset:0 auto 0 0;width:250px;background:#10291d;color:#fff;display:flex;flex-direction:column;z-index:30;overflow-y:auto}.brand{height:84px;background:var(--yellow);display:flex;align-items:center;padding:0 22px}.brand img{max-width:185px;max-height:58px;width:auto;height:auto;display:block;object-fit:contain}.brand img.logo-ok{display:block}.brand img.logo-ok+.logo-placeholder{display:none}.brand .logo-placeholder{width:185px;height:58px}.nav{padding:25px 13px}.nav-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#78907f;padding:0 12px 9px}.nav button{width:100%;border:0;background:transparent;color:#b7c5bb;display:flex;gap:12px;align-items:center;padding:11px 13px;margin:3px 0;border-radius:10px;text-align:left;font-size:12px;font-weight:500}.nav button:hover,.nav button.active{background:rgba(255,255,255,.09);color:#fff}.nav svg{width:18px;height:18px;flex:none}.nav button.active svg{color:var(--yellow)}.side-bottom{margin-top:auto;padding:18px;border-top:1px solid rgba(255,255,255,.08);font-size:10px;color:#72877a}.main{margin-left:250px;width:calc(100% - 250px);min-width:0}.top{height:76px;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 30px;position:sticky;top:0;z-index:20}.top-left{display:flex;align-items:center;gap:12px;min-width:0}.top-left .crumb{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.menu-mobile{display:none}.crumb{font-size:12px;color:var(--muted)}.crumb b{color:var(--green)}.top-right{display:flex;align-items:center;gap:16px;min-width:0}.profile{min-width:0}.profile>div:first-child{min-width:0}.profile b,.profile span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.icon-btn{width:38px;height:38px;border:1px solid var(--line);background:#fff;border-radius:10px;display:grid;place-items:center;color:var(--green)}.profile{display:flex;align-items:center;gap:9px}.avatar{width:36px;height:36px;border-radius:11px;background:var(--pale);color:var(--green);display:grid;place-items:center;font-size:11px;font-weight:700}.profile b{font-size:11px;display:block}.profile span{font-size:9px;color:var(--muted);display:block}.content{max-width:1600px;width:100%;min-width:0;margin:auto;padding:28px 30px 50px}.hero{display:flex;justify-content:space-between;align-items:end;margin-bottom:22px}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--green3);margin-bottom:5px}.hero h1{font-size:27px;line-height:1.25;margin:0;font-weight:700;letter-spacing:-.03em;color:var(--green)}.hero p{font-size:11px;color:var(--muted);margin:6px 0 0}.hero-actions{display:flex;gap:8px}.btn{height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--green);font-size:11px;font-weight:600}.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}.btn.primary:hover{background:var(--green2)}.btn.soft{background:var(--pale);border-color:transparent}.btn.danger{color:#b0443c;border-color:#f0d0cd;background:#fff7f6}.btn.danger:hover{background:#fdecea;border-color:#e9bdb8}.act.danger{color:#b0443c;border-color:#f0d0cd;background:#fff7f6}.act.danger:hover{background:#fdecea;border-color:#e9bdb8}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:13px;margin-bottom:22px}.kpi{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:17px;box-shadow:var(--shadow);min-height:112px;position:relative;overflow:hidden}.kpi:after{content:"";position:absolute;width:75px;height:75px;border-radius:50%;right:-31px;top:-31px;background:var(--pale)}.kpi-top{display:flex;justify-content:space-between;align-items:center;position:relative;z-index:1}.kpi-label{font-size:10px;color:var(--muted);font-weight:500}.kpi-icon{width:29px;height:29px;border-radius:9px;background:var(--pale);color:var(--green);display:grid;place-items:center}.kpi strong{font-size:25px;line-height:1.1;display:block;margin-top:13px;color:var(--green);position:relative;z-index:1}.kpi small{font-size:9px;color:var(--muted)}.workspace{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}.toolbar{padding:16px;border-bottom:1px solid var(--line);display:flex;gap:9px;align-items:center;justify-content:space-between}.search{position:relative;flex:1;max-width:410px}.search svg{position:absolute;left:12px;top:11px;width:17px;color:#9aa39c}.search input{height:40px;width:100%;padding:0 12px 0 37px;border:1px solid var(--line);border-radius:10px;outline:0;font-size:11px;background:#fbfcfb}.search input:focus{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.1)}.filters{display:flex;gap:8px;flex-wrap:wrap}.select{height:40px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:0 10px;font-size:10px;color:var(--text);outline:0;min-width:125px}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:0}.table th{padding:11px 15px;background:#fafcf9;border-bottom:1px solid var(--line);font-size:9px;letter-spacing:.07em;text-transform:uppercase;text-align:left;color:#849087;font-weight:600}.table td{padding:12px 15px;border-bottom:1px solid #eef1ee;font-size:10px;vertical-align:middle}.table tbody tr{transition:.15s}.table tbody tr:hover{background:#fbfdfb}.candidate{display:flex;align-items:center;gap:10px;min-width:190px}.photo{width:38px;height:38px;border-radius:12px;background:var(--pale);overflow:hidden;display:grid;place-items:center;color:var(--green);font-weight:700;font-size:11px;flex:none}.photo img{width:100%;height:100%;object-fit:cover}.cand b{display:block;color:var(--green);font-size:10px}.cand span{display:block;color:var(--muted);font-size:9px;margin-top:2px}.pill{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:600;white-space:nowrap}.pill:before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}.p-new{background:#FFF7D6;color:#8C7000}.p-review{background:#EEF2FF;color:#5369A8}.p-short{background:var(--pale);color:var(--green2)}.p-interview{background:#EAF1FF;color:#3E65A4}.p-selected{background:#E7F6E9;color:#2D7A3F}.p-rejected{background:#FDEDEC;color:#B0443C}.row-actions{display:flex;gap:5px}.act{height:30px;width:30px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--green);display:grid;place-items:center}.act:hover{background:var(--pale);border-color:#cfe2d4}.more{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--green);font-size:9px;font-weight:600}.bottom{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;font-size:9px;color:var(--muted)}.page-btns{display:flex;gap:5px}.page-btn{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--green);font-size:10px}.page-btn.active{background:var(--green);color:#fff;border-color:var(--green)}.empty{padding:45px;text-align:center;color:var(--muted);font-size:11px}.overlay{position:fixed;inset:0;background:rgba(10,28,19,.45);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:80;padding:20px}.overlay.show{display:flex}.modal{width:min(940px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.2)}.modal-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:2}.modal-title{display:flex;gap:12px;align-items:center}.modal-title h2{font-size:17px;color:var(--green);margin:0}.modal-title p{font-size:9px;color:var(--muted);margin:3px 0 0}.close{width:34px;height:34px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--muted);font-size:18px}.modal-body{padding:20px}.profile-grid{display:grid;grid-template-columns:190px 1fr;gap:20px}.big-photo{height:220px;border-radius:16px;background:var(--pale);overflow:hidden;display:grid;place-items:center;color:var(--green);font-weight:700}.big-photo img{width:100%;height:100%;object-fit:cover}.profile-actions{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:17px}.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.info{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fcfdfc}.info label{font-size:8px;color:#89938c;text-transform:uppercase;letter-spacing:.08em;display:block}.info strong{font-size:11px;color:var(--text);display:block;margin-top:4px;word-break:break-word}.section-title{font-size:12px;color:var(--green);font-weight:700;margin:22px 0 10px}.docs{display:grid;grid-template-columns:1fr 1fr;gap:10px}.doc{border:1px solid var(--line);border-radius:12px;padding:13px;display:flex;align-items:center;justify-content:space-between;gap:10px}.doc-info b{font-size:10px;color:var(--green);display:block}.doc-info span{font-size:8px;color:var(--muted);display:block;margin-top:3px}
+.mail-modal{max-width:520px}
+.mail-purpose-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.mail-purpose{border:1px solid #e3e9e4;background:#fff;border-radius:14px;padding:16px;text-align:left;cursor:pointer;transition:.18s;font-family:inherit}
+.mail-purpose:hover{border-color:#4a9b63;background:#f5faf6;transform:translateY(-1px)}
+.mail-purpose strong{display:block;color:#1a3c2a;font-size:13px;margin-bottom:5px}
+.mail-purpose span{display:block;color:#7b857e;font-size:10px;line-height:1.45}
+.mail-cancel{margin-top:14px;width:100%}
+@media(max-width:560px){.mail-purpose-grid{grid-template-columns:1fr}}
+.toast{position:fixed;right:22px;bottom:22px;background:var(--green);color:#fff;padding:12px 15px;border-radius:11px;box-shadow:0 12px 35px rgba(26,60,42,.2);font-size:10px;display:none;z-index:300;max-width:calc(100vw - 44px)}.toast.show{display:block}.mobile-overlay{display:none}
+.date-filter{height:40px;border:1px solid var(--line);border-radius:10px;background:#fff;padding:4px 9px 3px;display:flex;flex-direction:column;justify-content:center;min-width:142px}.date-filter span{font-size:7px;line-height:1;color:#89938c;text-transform:uppercase;letter-spacing:.06em;font-weight:600}.date-filter input{border:0;outline:0;background:transparent;padding:2px 0 0;font-size:10px;color:var(--text);font-family:inherit;width:100%}.date-filter input::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.65}.date-filter:focus-within{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.1)}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}.toolbar{align-items:stretch;flex-direction:column}.search{max-width:none}.filters{display:grid;grid-template-columns:repeat(4,1fr)}}
+@media(max-width:850px){.sidebar{width:72px}.brand{justify-content:center;padding:0}.brand img,.brand img.logo-ok{display:block;max-width:42px;max-height:42px;width:auto;height:auto;object-fit:contain}.brand img.logo-ok+.logo-placeholder{display:none}.brand .logo-placeholder{width:38px;height:38px}.nav button span{display:none}.nav button{justify-content:center}.nav-label,.side-bottom{display:none}.main{margin-left:72px;width:calc(100% - 72px)}.top{padding:0 16px}.content{padding:20px 16px 35px}.profile-grid{grid-template-columns:1fr}.big-photo{height:190px;max-width:190px}.filters{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.kpis{grid-template-columns:1fr 1fr}.hero{align-items:flex-start;flex-direction:column;gap:13px}.hero-actions{width:100%}.hero-actions .btn{flex:1}.top-right .icon-btn{display:none}.profile .user-role{display:none}.filters{grid-template-columns:1fr}.info-grid,.docs{grid-template-columns:1fr}.content{padding:15px 10px}.kpi{padding:14px}.kpi strong{font-size:22px}}
+.login-gate{position:fixed;inset:0;background:#f5f7f5;display:flex;align-items:center;justify-content:center;padding:24px;z-index:200}.login-shell{width:min(420px,100%)}.login-card{background:#fff;border:1px solid #e5eae5;border-radius:22px;padding:34px;box-shadow:0 25px 80px rgba(26,60,42,.10)}.login-logo{height:64px;display:flex;align-items:center;justify-content:center;margin-bottom:26px}.login-logo img{max-height:58px;max-width:190px}.login-logo .logo-placeholder{width:190px;height:58px}.login-kicker{text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.14em;color:#4a9b63;font-weight:700}.login-title{text-align:center;font-family:Georgia,'Times New Roman',serif;font-size:24px;letter-spacing:.015em;color:#1a3c2a;margin:7px 0 4px}.login-sub{text-align:center;font-size:10px;color:#778078;margin:0 0 25px}.login-field{margin-bottom:14px}.login-field label{display:block;font-size:10px;color:#1a3c2a;font-weight:600;margin-bottom:6px}.login-field input{width:100%;height:44px;border:1px solid #e5eae5;border-radius:11px;padding:0 13px;outline:0;font-size:11px}.login-field input:focus{border-color:#4a9b63;box-shadow:0 0 0 3px rgba(74,155,99,.10)}.login-btn{width:100%;height:44px;border:0;border-radius:11px;background:#1a3c2a;color:#fff;font-size:11px;font-weight:600;margin-top:5px}.login-btn:hover{background:#2e6b44}.login-btn:disabled{opacity:.65;cursor:not-allowed}.login-error{display:none;background:#fdf0ee;border:1px solid #f3c8c3;color:#a83e35;border-radius:10px;padding:10px;font-size:9px;line-height:1.5;margin-bottom:14px}.login-note{text-align:center;color:#9aa39c;font-size:8px;margin-top:18px;line-height:1.5}.audit-card{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:13px;background:#fafcf9}.audit-card .audit-title{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#849087;font-weight:600;margin-bottom:8px}.audit-card .audit-main{font-size:11px;color:var(--green);font-weight:600}.audit-card .audit-meta{font-size:9px;color:var(--muted);margin-top:3px;line-height:1.5}.audit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.audit-item{border:1px solid var(--line);border-radius:11px;padding:11px;background:#fff}.actor-line{font-size:9px;color:var(--muted);margin-top:4px;line-height:1.45}.actor-line b{color:var(--green)}
+.logout-btn{border:1px solid #e5eae5;background:#fff;color:#536058;border-radius:9px;height:34px;padding:0 10px;font-size:9px;font-weight:600}.logout-btn:hover{background:#f5f7f5}
+/* ===== SCHEDULE MODAL (also used for Reschedule) ===== */
+.schedule-overlay{position:fixed;inset:0;background:rgba(10,28,19,.48);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:140;padding:20px}.schedule-overlay.show{display:flex}
+.schedule-modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.2)}
+.schedule-head{padding:19px 21px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px;position:sticky;top:0;background:#fff;z-index:2}
+.schedule-head>div{min-width:0}.schedule-head h2{margin:0;color:var(--green);font-size:17px;overflow-wrap:anywhere}.schedule-head p{margin:4px 0 0;color:var(--muted);font-size:9px;overflow-wrap:anywhere}.schedule-head .eyebrow{margin-bottom:4px}.close{flex:none}
+.schedule-body{padding:20px}.schedule-candidate{background:var(--pale);border:1px solid #d9eadf;border-radius:13px;padding:12px 14px;margin-bottom:17px}.schedule-candidate b{display:block;color:var(--green);font-size:12px}.schedule-candidate span{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.schedule-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.schedule-field label{display:block;font-size:9px;color:var(--green);font-weight:600;margin-bottom:6px}
+.schedule-field input,.schedule-field select{width:100%;height:42px;border:1px solid var(--line);border-radius:10px;padding:0 11px;outline:0;background:#fff;font-size:10px;color:var(--text)}
+.schedule-field input:focus,.schedule-field select:focus{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.1)}
+.schedule-note{margin-top:14px;padding:11px 12px;background:#fafcf9;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:9px;line-height:1.5}
+.schedule-error{display:none;margin-bottom:13px;padding:10px;border:1px solid #f3c8c3;background:#fdf0ee;color:#a83e35;border-radius:10px;font-size:9px}
+.schedule-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}.schedule-actions .btn{min-width:100px}
+.invite-overlay{position:fixed;inset:0;background:rgba(10,28,19,.48);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:155;padding:20px}.invite-overlay.show{display:flex}.invite-modal{width:min(440px,100%);background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.2);overflow:hidden}.invite-head{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:15px}.invite-head h2{margin:0;color:var(--green);font-size:18px}.invite-head p{margin:5px 0 0;color:var(--muted);font-size:10px;line-height:1.5}.invite-body{padding:22px}.invite-candidate{background:var(--pale);border:1px solid #d9eadf;border-radius:13px;padding:12px 14px;margin-bottom:18px}.invite-candidate b{display:block;color:var(--green);font-size:12px}.invite-candidate span{display:block;color:var(--muted);font-size:9px;margin-top:4px}.invite-options{display:grid;grid-template-columns:1fr 1fr;gap:12px}.invite-option{border:1px solid var(--line);background:#fff;border-radius:14px;padding:16px;text-align:left;cursor:pointer;transition:.18s ease;font-family:inherit}.invite-option:hover{border-color:var(--green3);box-shadow:0 8px 24px rgba(26,60,42,.08);transform:translateY(-1px)}.invite-option strong{display:block;color:var(--green);font-size:12px;margin-bottom:5px}.invite-option span{display:block;color:var(--muted);font-size:9px;line-height:1.45}.invite-option.mail{background:#fafcf9}.invite-option.whatsapp{background:#f5fbf6}.invite-footer{padding:0 22px 20px;display:flex;justify-content:flex-end}.invite-footer .btn{min-width:90px}
+
+.readonly-field{background:#f7f9f7!important;color:#6f7971!important}
+
+/* ===== INTERVIEW DETAIL / MANAGE MODAL ===== */
+.interview-detail-overlay{position:fixed;inset:0;background:rgba(10,28,19,.48);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:130;padding:20px}.interview-detail-overlay.show{display:flex}
+.interview-detail-modal{width:min(780px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.2)}
+.detail-body{padding:20px;min-width:0}
+.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.detail-card{border:1px solid var(--line);border-radius:12px;padding:13px;background:#fcfdfc;min-width:0}
+.detail-card label{font-size:8px;color:#89938c;text-transform:uppercase;letter-spacing:.08em;display:block}
+.detail-card strong{font-size:11px;color:var(--text);display:block;margin-top:4px;overflow-wrap:anywhere}
+.detail-link{margin-top:14px;padding:14px;border:1px solid #d9eadf;background:var(--pale);border-radius:12px}.detail-link b{display:block;font-size:10px;color:var(--green)}.detail-link a{display:block;margin-top:5px;font-size:10px;color:var(--green2);overflow-wrap:anywhere}
+.interview-note{margin-top:14px}.interview-note textarea{width:100%;min-height:85px;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;font-size:10px;resize:vertical;outline:0}.interview-note textarea:focus{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.1)}
+.detail-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:18px}
+.detail-actions .btn{height:auto;min-height:36px;padding:8px 14px;line-height:1.25;white-space:normal;flex:0 1 auto}
+.detail-actions .danger{color:#b0443c;border-color:#f0d0cd;background:#fff7f6}
+
+/* ===== PAGE SYSTEM (Dashboard / Reports / Settings) ===== */
+.page-section{display:none}.page-section.is-active{display:block}.dashboard-overview{margin-top:18px}.overview-card,.report-panel,.settings-card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px}.overview-head,.page-title{display:flex;align-items:flex-end;justify-content:space-between;gap:18px}.overview-head h3,.settings-card h3{margin:2px 0 4px;color:var(--green);font-size:16px}.overview-head p,.page-title p,.settings-card p{margin:0;color:var(--muted);font-size:10px;line-height:1.6}.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.quick-card{border:1px solid var(--line);background:#fbfdfb;border-radius:14px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:7px;color:var(--text);transition:.18s}.quick-card:hover{border-color:#cfe2d4;background:var(--pale);transform:translateY(-1px)}.quick-card strong{font-size:12px;color:var(--green)}.quick-card span{font-size:9px;color:var(--muted);line-height:1.5}.quick-card b{font-size:9px;color:var(--green2);margin-top:4px}.recent-list{display:grid;gap:8px;margin-top:14px}.recent-item{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:11px}.recent-item strong{font-size:10px;color:var(--green)}.recent-item span{display:block;font-size:8px;color:var(--muted);margin-top:2px}.recent-item .recent-date{font-size:8px;color:var(--muted);white-space:nowrap}.deleted-list{display:grid;gap:8px;margin-top:14px}.deleted-item{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:#fbfdfb}.deleted-item strong{display:block;font-size:10px;color:var(--green)}.deleted-item span{display:block;font-size:8px;color:var(--muted);margin-top:3px}.deleted-meta{text-align:right;font-size:8px;color:var(--muted);white-space:nowrap}.deleted-modal{width:min(720px,calc(100vw - 32px))}.deleted-modal-list{display:grid;gap:10px;max-height:55vh;overflow:auto}.deleted-modal-item{display:grid;grid-template-columns:1fr auto;gap:16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fbfdfb}.deleted-modal-item strong{font-size:11px;color:var(--green)}.deleted-modal-item span{display:block;font-size:9px;color:var(--muted);margin-top:4px;line-height:1.5}.deleted-modal-meta{text-align:right;font-size:9px;color:var(--muted);white-space:nowrap}.deleted-empty{padding:20px;text-align:center;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:10px}
+.dashboard-focus{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:16px;margin-top:16px}.focus-card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:20px;min-width:0}.focus-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.focus-head h3{margin:2px 0 4px;color:var(--green);font-size:15px}.focus-head p{margin:0;color:var(--muted);font-size:9px;line-height:1.5}.focus-list{display:grid;gap:8px}.focus-item{display:grid;grid-template-columns:74px minmax(0,1fr) auto;gap:11px;align-items:center;padding:10px 11px;border:1px solid var(--line);border-radius:12px;background:#fbfdfb}.focus-time{font-size:9px;font-weight:700;color:var(--green);line-height:1.35}.focus-time span{display:block;font-size:8px;font-weight:500;color:var(--muted);margin-top:2px}.focus-main strong{display:block;font-size:10px;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.focus-main span{display:block;font-size:8px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.focus-item .btn{height:30px;padding:0 10px;font-size:9px}.focus-empty{padding:24px 10px;text-align:center;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:9px}.pipeline-mini{display:grid;gap:12px}.pipeline-mini-row{display:grid;grid-template-columns:126px minmax(0,1fr) 28px;gap:9px;align-items:center}.pipeline-mini-label{font-size:9px;color:#5f6b63;white-space:nowrap}.pipeline-mini-track{height:7px;background:#edf1ed;border-radius:999px;overflow:hidden}.pipeline-mini-fill{height:100%;background:var(--green3);border-radius:999px;min-width:0}.pipeline-mini-count{text-align:right;font-size:9px;font-weight:700;color:var(--green)}.focus-footer{display:flex;justify-content:flex-end;margin-top:13px}.focus-footer .btn{height:34px;font-size:9px}
+.page-title{margin-bottom:20px}.page-title h2{margin:3px 0 4px;font-size:26px;color:var(--green)}.report-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:16px}.report-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:var(--shadow)}.report-card span{font-size:9px;color:var(--muted)}.report-card strong{display:block;font-size:25px;color:var(--green);margin-top:8px}.report-card small{font-size:8px;color:var(--muted)}.report-panel{margin-bottom:16px}.pipeline-list{display:grid;gap:10px;margin-top:14px}.pipeline-row{display:grid;grid-template-columns:180px 1fr 60px;align-items:center;gap:12px}.pipeline-label{font-size:9px;color:var(--text)}.pipeline-track{height:8px;background:#edf2ee;border-radius:99px;overflow:hidden}.pipeline-fill{height:100%;background:var(--green3);border-radius:99px}.pipeline-count{font-size:10px;font-weight:700;color:var(--green);text-align:right}.settings-grid{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:15px}.settings-card{min-height:180px}.settings-icon{width:48px;height:48px;border-radius:14px;background:var(--pale);color:var(--green);display:grid;place-items:center;font-weight:700;margin-bottom:12px}.settings-card h3{margin-top:0}.settings-role{display:inline-flex;padding:5px 8px;border-radius:99px;background:var(--pale);color:var(--green2);font-size:8px;font-weight:600;margin-top:9px}.setting-row{display:flex;justify-content:space-between;gap:15px;border-top:1px solid var(--line);padding:11px 0;font-size:9px;color:var(--muted)}.setting-row b{color:var(--green);font-weight:600}.settings-card .btn{margin-top:15px}
+.table td,.table th{overflow-wrap:break-word}.row-actions,.profile-actions,.hero-actions{flex-wrap:wrap}.row-actions .act,.row-actions .more{flex:none;white-space:nowrap}.btn:disabled{opacity:.55;cursor:not-allowed}.logout-btn{white-space:nowrap;flex:none}
+
+/* ===== INTERVIEW MANAGEMENT MODULE (single source of truth) ===== */
+.interview-workspace{width:100%;min-width:0}
+.interview-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 24px;flex-wrap:wrap;margin-bottom:20px}
+.interview-head>div:first-child{flex:1 1 320px;min-width:0}
+.interview-head h2{margin:3px 0 0;font-size:clamp(22px,2.2vw,28px);line-height:1.2;letter-spacing:-.03em;color:var(--green);overflow-wrap:break-word}
+.interview-head p{margin:7px 0 0;font-size:11px;line-height:1.55;color:var(--muted);max-width:62ch}
+.interview-filters{display:flex;align-items:center;gap:8px;flex:0 1 540px;min-width:0}
+.interview-filters .interview-search{flex:1 1 180px;min-width:0;height:40px;font-size:11px;padding:0 14px}
+.interview-filters #interviewStatusFilter{flex:0 0 170px;min-width:0;font-size:11px}
+.interview-filters .btn{flex:none}
+.interview-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:0 0 18px}
+.interview-stat{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);min-width:0}
+.interview-stat span{display:block;font-size:10px;color:var(--muted);font-weight:500}
+.interview-stat strong{display:block;margin-top:6px;font-size:24px;line-height:1.1;color:var(--green)}
+
+/* the table card: the card scrolls internally only when the viewport is genuinely too narrow */
+.interview-table-wrap{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow-x:auto;max-width:100%;min-width:0}
+.interview-table{width:100%;table-layout:fixed;border-collapse:collapse}
+.interview-table col.candidate-col{width:23%}.interview-table col.datetime-col{width:14%}.interview-table col.position-col{width:14%}.interview-table col.interviewer-col{width:11%}.interview-table col.type-col{width:11%}.interview-table col.status-col{width:11%}.interview-table col.actions-col{width:16%}
+.interview-table th{padding:13px 10px;background:#fafcf9;border-bottom:1px solid var(--line);font-size:9px;letter-spacing:.07em;text-transform:uppercase;text-align:left;color:#849087;font-weight:600;line-height:1.3;overflow-wrap:break-word}
+.interview-table td{padding:14px 10px;border-bottom:1px solid #eef1ee;font-size:10px;line-height:1.45;vertical-align:middle;overflow-wrap:break-word}
+.interview-table th:first-child,.interview-table td:first-child{padding-left:16px}
+.interview-table th:last-child,.interview-table td:last-child{padding-right:16px}
+.interview-table tbody tr:last-child td{border-bottom:0}
+.interview-table tbody tr:hover{background:#fbfdfb}
+.interview-candidate{display:flex;align-items:center;gap:10px;min-width:0}
+.interview-candidate .photo{flex:0 0 38px}
+.interview-candidate .cand{flex:1 1 auto;min-width:0}
+.interview-candidate .cand b{display:block;font-size:10px;color:var(--green);overflow-wrap:break-word}
+.interview-candidate .cand span{display:block;margin-top:2px;font-size:9px;color:var(--muted);overflow-wrap:anywhere}
+.interview-date{font-weight:600;color:var(--green)}
+.interview-time{margin-top:2px;font-size:9px;color:var(--muted)}
+.interview-location{margin-top:3px;font-size:9px;color:#8a948d}
+.interview-status{display:inline-flex;align-items:center;justify-content:center;max-width:100%;padding:5px 10px;border-radius:999px;font-size:9px;font-weight:600;line-height:1.25;text-align:center}
+  .detail-actions .locked-action{opacity:.38!important;pointer-events:none;cursor:not-allowed;filter:grayscale(.35)}
+  .detail-locked-note{margin:14px 0 0;padding:12px 14px;border:1px solid #e6e9e6;border-radius:12px;background:#f7f8f7;color:#68736c;font-size:11px;line-height:1.5}
+  #interviewNotes:disabled{background:#f7f8f7;color:#8a938d;cursor:not-allowed;opacity:.72}
+.is-scheduled{background:#EAF1FF;color:#3E65A4}.is-completed{background:#E7F6E9;color:#2D7A3F}.is-cancelled{background:#FDEDEC;color:#B0443C}.is-rescheduled{background:#FFF7D6;color:#8C7000}
+.interview-row-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.interview-row-actions .btn{height:32px;min-width:0;padding:0 11px;font-size:10px;white-space:nowrap}
+.interview-empty{padding:55px 20px;text-align:center;color:var(--muted);font-size:11px}.interview-empty strong{display:block;color:var(--green);font-size:14px;margin-bottom:5px}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:1200px){.report-grid{grid-template-columns:repeat(2,1fr)}.settings-grid{grid-template-columns:1fr 1fr}.quick-grid{grid-template-columns:1fr 1fr}}@media(max-width:900px){.dashboard-focus{grid-template-columns:1fr}}
+@media(max-width:1100px){.interview-table{min-width:820px}.table{min-width:760px}}
+@media(max-width:850px){.page-title{align-items:flex-start;flex-direction:column}.page-title .btn{width:100%}.settings-grid{grid-template-columns:1fr}.recent-item{grid-template-columns:1fr auto}.recent-item .btn{grid-column:2;grid-row:1 / span 2}.interview-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.interview-filters{flex:1 1 100%}.detail-grid{grid-template-columns:1fr}}
+@media(max-width:700px){
+  /* interview rows become stacked cards on phones, so nothing scrolls sideways */
+  .interview-table-wrap{background:none;border:0;box-shadow:none;overflow:visible}
+  .interview-table{min-width:0}
+  .interview-table colgroup,.interview-table thead{display:none}
+  .interview-table,.interview-table tbody,.interview-table tr,.interview-table td{display:block;width:100%}
+  .interview-table tbody tr{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px 14px;margin-bottom:12px}
+  .interview-table tbody tr:hover{background:#fff}
+  .interview-table td,.interview-table td:first-child,.interview-table td:last-child{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;align-items:start;padding:9px 0;border-bottom:1px solid #f0f3f0;font-size:11px}
+  .interview-table td:last-child{border-bottom:0}
+  .interview-table td::before{content:attr(data-label);padding-top:2px;font-size:9px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#849087}
+  .interview-table td.interview-empty-cell{display:block;padding:0}.interview-table td.interview-empty-cell::before{display:none}
+  .interview-status{justify-self:start}
+}
+/* ===== INTERVIEW CALENDAR ===== */
+.calendar-panel{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);overflow:hidden}
+.calendar-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.calendar-title{display:flex;align-items:center;gap:12px;min-width:0}.calendar-title h3{margin:0;color:var(--green);font-size:15px}.calendar-title p{margin:3px 0 0;color:var(--muted);font-size:9px}.calendar-nav{display:flex;gap:6px}.calendar-nav .btn{height:34px;padding:0 11px}.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);border-left:1px solid var(--line);border-top:1px solid var(--line);margin:0 14px 14px}.calendar-weekday{background:#fafcf9;padding:9px 8px;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#849087;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}.calendar-day{min-height:112px;padding:8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff}.calendar-day.muted{background:#fbfcfb}.calendar-day.today{background:#f4faf5}.calendar-day-number{display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;color:#6f7971;margin-bottom:6px}.calendar-day.today .calendar-day-number{color:var(--green)}.calendar-day-number b{width:22px;height:22px;border-radius:7px;display:grid;place-items:center}.calendar-day.today .calendar-day-number b{background:var(--yellow);color:var(--green)}.calendar-events{display:flex;flex-direction:column;gap:4px}.calendar-event{border:0;border-left:3px solid var(--green3);background:var(--pale);border-radius:6px;padding:5px 6px;text-align:left;color:var(--green);font-size:8px;line-height:1.35;cursor:pointer;overflow:hidden}.calendar-event:hover{background:#dceee2}.calendar-event.completed{border-left-color:#2d7a3f;background:#e7f6e9}.calendar-event.cancelled,.calendar-event.not-attended{border-left-color:#b0443c;background:#fdedec}.calendar-event.connection-error,.calendar-event.other{border-left-color:#a77a00;background:#fff7d6}.calendar-event strong{display:block;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-event span{display:block;color:#6f7971;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calendar-more{font-size:8px;color:var(--muted);padding:2px 3px}/* ===== LAST INTERVIEW RESULT IN APPLICANT PROFILE ===== */
+.last-interview-result{border:1px solid var(--line);border-radius:14px;background:#fcfdfc;padding:15px;box-shadow:0 4px 16px rgba(26,60,42,.03)}
+.last-result-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.last-result-title{font-size:12px;font-weight:700;color:var(--green)}
+.last-result-sub{font-size:8px;color:var(--muted);margin-top:3px;line-height:1.45}
+.last-result-badge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:8px;font-weight:700;white-space:nowrap}
+.last-result-badge.completed{background:#e7f6e9;color:#2d7a3f}.last-result-badge.not-attended,.last-result-badge.cancelled{background:#fdedec;color:#b0443c}.last-result-badge.connection-error,.last-result-badge.other{background:#fff7d6;color:#8c7000}.last-result-badge.pending{background:#eaf1ff;color:#3e65a4}
+.last-result-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.last-result-item{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;min-width:0}
+.last-result-item label{display:block;font-size:7px;color:#89938c;text-transform:uppercase;letter-spacing:.08em}.last-result-item strong{display:block;margin-top:4px;font-size:10px;color:var(--text);overflow-wrap:anywhere}.last-result-notes{margin-top:9px;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}.last-result-notes label{display:block;font-size:7px;color:#89938c;text-transform:uppercase;letter-spacing:.08em}.last-result-notes p{margin:5px 0 0;font-size:9px;line-height:1.5;color:#536058;white-space:pre-wrap;overflow-wrap:anywhere}.last-result-empty{border:1px dashed #d9e2db;border-radius:12px;padding:14px;color:var(--muted);font-size:9px;background:#fbfcfb}
+@media(max-width:700px){.last-result-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){.last-result-head{flex-direction:column}.last-result-grid{grid-template-columns:1fr}}
+
+.calendar-legend{display:flex;gap:12px;flex-wrap:wrap;padding:0 18px 15px;font-size:8px;color:var(--muted)}.calendar-legend span{display:flex;align-items:center;gap:5px}.calendar-dot{width:7px;height:7px;border-radius:50%;background:var(--green3)}.calendar-dot.completed{background:#2d7a3f}.calendar-dot.cancelled{background:#b0443c}.calendar-dot.other{background:#a77a00}@media(max-width:700px){.calendar-grid{margin:0 8px 8px;min-width:0}.calendar-day{min-height:92px;padding:5px}.calendar-weekday{padding:7px 4px;font-size:7px}.calendar-event{padding:4px;font-size:7px}.calendar-event span{display:none}.calendar-head{align-items:flex-start;flex-direction:column}.calendar-nav{width:100%}.calendar-nav .btn{flex:1}.calendar-title h3{font-size:14px}}
+.outcome-overlay{position:fixed;inset:0;background:rgba(10,28,19,.5);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;z-index:170;padding:20px}.outcome-overlay.show{display:flex}.outcome-modal{width:min(500px,100%);background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.22);overflow:hidden}.outcome-head{padding:20px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:15px}.outcome-head h2{margin:0;color:var(--green);font-size:18px}.outcome-head p{margin:5px 0 0;color:var(--muted);font-size:10px;line-height:1.5}.outcome-body{padding:22px}.outcome-candidate{background:var(--pale);border:1px solid #d9eadf;border-radius:13px;padding:12px 14px;margin-bottom:18px}.outcome-candidate b{display:block;color:var(--green);font-size:12px}.outcome-candidate span{display:block;color:var(--muted);font-size:9px;margin-top:4px}.outcome-field{margin-bottom:14px}.outcome-field label{display:block;font-size:9px;color:#6f7b73;font-weight:600;margin-bottom:6px}.outcome-field select,.outcome-field input,.outcome-field textarea{width:100%;border:1px solid var(--line);border-radius:10px;background:#fff;padding:10px 11px;outline:0;font-size:11px;color:var(--text)}.outcome-field textarea{min-height:80px;resize:vertical}.outcome-field select:focus,.outcome-field input:focus,.outcome-field textarea:focus{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.1)}.rating-wrap{display:none}.rating-wrap.show{display:block}.outcome-note{font-size:9px;color:var(--muted);line-height:1.5;margin:4px 0 15px}.outcome-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}.outcome-actions .btn{min-width:120px}.outcome-error{display:none;background:#fff3f2;border:1px solid #f1c0bb;color:#a63b33;border-radius:10px;padding:9px 11px;font-size:9px;margin-bottom:12px}@media(max-width:600px){.schedule-grid{grid-template-columns:1fr}.schedule-actions{flex-direction:column-reverse}.schedule-actions .btn{width:100%}.schedule-body,.detail-body{padding:15px}.interview-detail-overlay,.schedule-overlay{padding:10px}.detail-actions .btn{flex:1 1 calc(50% - 8px);min-width:0}.interview-filters{flex-wrap:wrap}.interview-filters .interview-search{flex:1 1 100%}.interview-filters #interviewStatusFilter{flex:1 1 0}.interview-filters .btn{flex:0 0 auto}.interview-head h2{font-size:22px}.interview-head p{font-size:10px}}
+@media(max-width:560px){.content{padding:16px 10px 35px}.quick-grid,.report-grid{grid-template-columns:1fr}.pipeline-mini-row{grid-template-columns:105px minmax(0,1fr) 24px}.focus-item{grid-template-columns:66px minmax(0,1fr)}.focus-item .btn{grid-column:2;justify-self:start}.overview-head{align-items:flex-start;flex-direction:column}.overview-head .btn{width:100%}.recent-item{grid-template-columns:1fr}.recent-item .btn{grid-column:auto;grid-row:auto}.interview-summary{gap:8px}.interview-stat{padding:13px}.profile-actions .btn{flex:1;min-width:120px}.table{min-width:720px}.pipeline-row{grid-template-columns:100px 1fr 36px;gap:8px}.top-right{gap:8px}.profile>div:first-child{display:none}.setting-row{flex-direction:column;gap:3px}}
+
+/* ===== V19 PREMIUM UI REFINEMENT ===== */
+.login-gate{background:radial-gradient(circle at 50% 8%,rgba(248,236,54,.18),transparent 28%),linear-gradient(135deg,#f7faf7 0%,#eef4ef 100%)}
+.login-card{position:relative;width:min(430px,100%);padding:38px 38px 32px;border-radius:26px;border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.88);backdrop-filter:blur(18px);box-shadow:0 30px 90px rgba(26,60,42,.13),0 2px 0 rgba(255,255,255,.8) inset;overflow:hidden}
+.login-card:before{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,var(--green),var(--green3),var(--yellow));opacity:.9}
+.login-logo{height:82px;margin:0 auto 21px;padding:6px 18px;border:1px solid rgba(229,234,229,.9);border-radius:17px;background:linear-gradient(145deg,rgba(248,236,54,.13),rgba(234,244,238,.7));box-shadow:0 8px 22px rgba(26,60,42,.05) inset;position:relative}
+.login-logo img{display:block;max-height:68px;max-width:210px;width:auto;height:auto;object-fit:contain}
+.login-kicker{letter-spacing:.18em}
+.login-title{font-size:26px;line-height:1.12;margin:8px 0 7px}
+.login-sub{font-size:10px;line-height:1.7;max-width:330px;margin:0 auto 27px}
+.login-field input{height:48px;border-radius:13px;background:rgba(255,255,255,.84);transition:border-color .18s,box-shadow .18s,background .18s}
+.login-field input:hover{border-color:#d4ddd5;background:#fff}
+.login-btn{height:48px;border-radius:13px;box-shadow:0 10px 24px rgba(26,60,42,.14);transition:transform .18s,box-shadow .18s,background .18s}
+.login-btn:hover{transform:translateY(-1px);box-shadow:0 13px 28px rgba(26,60,42,.18)}
+.login-note{max-width:320px;margin:18px auto 0}
+.top{background:rgba(255,255,255,.82);border-bottom-color:rgba(229,234,229,.8);box-shadow:0 8px 28px rgba(26,60,42,.035)}
+.sidebar{background:linear-gradient(180deg,#10291d 0%,#0d241a 100%);box-shadow:10px 0 35px rgba(10,28,19,.06)}
+.brand{position:relative;overflow:hidden;box-shadow:0 1px 0 rgba(26,60,42,.08) inset}
+.brand:after{content:"";position:absolute;right:-32px;top:-40px;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.16)}
+.nav button{transition:background .18s,transform .18s,color .18s}
+.nav button:hover{transform:translateX(2px)}
+.nav button.active{box-shadow:0 8px 20px rgba(0,0,0,.08) inset,0 5px 18px rgba(0,0,0,.05)}
+.icon-btn,.btn,.select,.search,.date-filter,.workspace,.overview-card,.report-panel,.settings-card,.kpi{transition:border-color .18s,box-shadow .18s,transform .18s,background .18s}
+.btn{border-radius:11px;box-shadow:0 2px 0 rgba(26,60,42,.025)}
+.btn:hover{border-color:#d0ddd3;box-shadow:0 7px 18px rgba(26,60,42,.07);transform:translateY(-1px)}
+.btn.primary:hover{box-shadow:0 10px 22px rgba(26,60,42,.17)}
+.search{background:rgba(255,255,255,.78);border-radius:13px;box-shadow:0 4px 18px rgba(26,60,42,.025)}
+.select,.date-filter{background:rgba(255,255,255,.78);border-radius:11px}
+.kpi{border-radius:18px;box-shadow:0 10px 34px rgba(26,60,42,.055);background:linear-gradient(145deg,#fff 0%,#fbfdfb 100%)}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 15px 38px rgba(26,60,42,.08)}
+.workspace,.overview-card,.report-panel,.settings-card{border-radius:20px;box-shadow:0 12px 38px rgba(26,60,42,.055)}
+.quick-card{border-radius:16px;background:linear-gradient(145deg,#fff,#f8fbf8);box-shadow:0 5px 18px rgba(26,60,42,.025)}
+.quick-card:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(26,60,42,.07)}
+.recent-item,.detail-card,.audit-item{background:linear-gradient(145deg,#fff,#fbfdfb);border-radius:13px}
+.table tbody tr{transition:background .16s,box-shadow .16s}
+.table tbody tr:hover{background:#fbfdfb;box-shadow:0 3px 12px rgba(26,60,42,.035)}
+.toolbar{background:linear-gradient(180deg,#fff 0%,#fbfdfb 100%)}
+.modal,.schedule-modal,.invite-modal,.outcome-modal,.interview-detail-modal{border:1px solid rgba(229,234,229,.9);box-shadow:0 35px 90px rgba(10,28,19,.20)}
+.overlay,.schedule-overlay,.invite-overlay,.outcome-overlay,.interview-detail-overlay{backdrop-filter:blur(8px)}
+.section-title{letter-spacing:.06em}
+.settings-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.settings-actions .btn{margin:0!important}
+.password-overlay{position:fixed;inset:0;background:rgba(10,28,19,.48);backdrop-filter:blur(9px);display:none;align-items:center;justify-content:center;z-index:240;padding:20px}
+.password-overlay.show{display:flex}
+.password-modal{width:min(500px,100%);background:rgba(255,255,255,.97);border:1px solid rgba(229,234,229,.95);border-radius:22px;box-shadow:0 35px 100px rgba(10,28,19,.23);overflow:hidden}
+.password-head{padding:23px 24px 19px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.password-head h2{margin:2px 0 5px;color:var(--green);font-size:20px}
+.password-head p{margin:0;max-width:390px;color:var(--muted);font-size:9px;line-height:1.6}
+.password-body{padding:22px 24px 24px}
+.password-field{margin-bottom:16px}.password-field label{display:block;font-size:9px;color:var(--green);font-weight:600;margin-bottom:6px}
+.password-input-wrap{position:relative}.password-input-wrap input{width:100%;height:46px;padding:0 62px 0 12px;border:1px solid var(--line);border-radius:12px;outline:0;background:#fff;color:var(--text);font-size:10px;transition:.18s}
+.password-input-wrap input:focus{border-color:var(--green3);box-shadow:0 0 0 3px rgba(74,155,99,.10)}
+.password-toggle{position:absolute;right:8px;top:7px;height:32px;padding:0 9px;border:0;border-radius:8px;background:var(--pale);color:var(--green);font-size:8px;font-weight:600}
+.password-strength{height:5px;background:#edf2ee;border-radius:99px;overflow:hidden;margin-top:8px}.password-strength span{display:block;height:100%;width:0;border-radius:99px;background:var(--green3);transition:width .2s,background .2s}
+.password-hint{font-size:8px;color:var(--muted);margin-top:5px;line-height:1.45}.password-error{display:none;background:#fff3f2;border:1px solid #f1c0bb;color:#a63b33;border-radius:10px;padding:9px 11px;font-size:9px;line-height:1.45;margin-bottom:13px}
+.password-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}.password-actions .btn{min-width:118px}
+@media(max-width:700px){.login-card{padding:30px 22px 25px}.password-modal{border-radius:18px}.password-head,.password-body{padding-left:18px;padding-right:18px}.password-actions{flex-direction:column-reverse}.password-actions .btn{width:100%}.settings-actions .btn{flex:1 1 100%}}
+
+/* =========================================================
+   FINAL V21 UI REFINEMENT
+   ========================================================= */
+html{scroll-behavior:smooth}
+body{transition:background-color .25s ease,color .25s ease}
+.brand{height:104px;padding:0 20px}
+.brand img{max-width:215px;max-height:76px}
+.brand .logo-placeholder{width:215px;height:76px}
+.nav{padding-top:22px}
+.nav button{border:1px solid transparent;transition:background .18s,border-color .18s,color .18s,transform .18s}
+.nav button:hover{transform:translateX(2px)}
+.nav button.active{border-color:rgba(248,236,54,.10)}
+.nav svg{width:19px;height:19px;stroke-linecap:round;stroke-linejoin:round}
+.top{height:78px}
+.icon-btn{display:grid;place-items:center}
+.icon-btn svg{width:18px;height:18px;stroke-linecap:round;stroke-linejoin:round}
+.theme-toggle .theme-moon{display:none}
+body.dark-mode .theme-toggle .theme-sun{display:none}
+body.dark-mode .theme-toggle .theme-moon{display:block}
+/* Applications toolbar: deliberate two-level layout instead of cramped wrapping. */
+#applicationsPage .toolbar{display:grid;grid-template-columns:1fr;gap:12px;padding:17px 18px;background:linear-gradient(180deg,rgba(250,252,250,.96),rgba(255,255,255,.98))}
+#applicationsPage .toolbar .search{max-width:none;width:100%}
+#applicationsPage .toolbar .search input{height:44px;background:#fff;border-radius:12px;font-size:10.5px}
+#applicationsPage .toolbar .search svg{top:13px}
+#applicationsPage .toolbar .filters{width:100%;display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:8px;align-items:stretch}
+#applicationsPage .toolbar .select,#applicationsPage .toolbar .date-filter,#applicationsPage .toolbar .filters>.btn{width:100%;min-width:0}
+#applicationsPage .toolbar .date-filter{height:42px}
+#applicationsPage .toolbar .filters>.btn{height:42px}
+#applicationsPage .toolbar .filters>.select{height:42px}
+#applicationsPage .toolbar .search input::placeholder{color:#98a19b}
+.workspace{box-shadow:0 10px 34px rgba(26,60,42,.055)}
+.table th{font-size:8.5px;letter-spacing:.09em}
+.table td{font-size:10.5px}
+.act,.more,.btn,.select,.date-filter,.icon-btn,.logout-btn{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease,background .16s ease}
+.act:hover,.more:hover,.btn:hover,.icon-btn:hover,.logout-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(26,60,42,.07)}
+.login-gate{background:radial-gradient(circle at 50% 8%,rgba(248,236,54,.12),transparent 32%),linear-gradient(145deg,#f7f9f7,#eef4ef)}
+.login-card{width:min(100%,470px);padding:38px 42px 34px;border-radius:26px;box-shadow:0 30px 90px rgba(26,60,42,.12);position:relative;overflow:hidden}
+.login-card:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,var(--green),var(--green3),var(--yellow));}
+.login-logo{height:90px;margin:4px auto 24px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.login-logo img{max-width:235px;max-height:82px}
+.login-logo .logo-placeholder{display:none}
+.login-title{font-size:29px;line-height:1.1;white-space:nowrap;letter-spacing:.005em;margin:7px 0 8px}
+.login-sub{font-size:10.5px;line-height:1.65;max-width:370px;margin:0 auto 27px}
+.login-field input{height:48px;border-radius:12px;background:#fff}
+.login-btn{height:48px;border-radius:12px;box-shadow:0 12px 25px rgba(26,60,42,.12)}
+/* Mobile navigation becomes an actual drawer instead of a permanently collapsed rail. */
+.mobile-overlay{position:fixed;inset:0;background:rgba(8,25,17,.42);backdrop-filter:blur(3px);z-index:29;display:none}
+.mobile-overlay.show{display:block}
+.menu-mobile{display:none}
+/* Dark theme: restrained, readable, still clearly Tarai Gold. */
+body.dark-mode{--bg:#0d1712;--card:#14231b;--text:#edf5ef;--muted:#9aaba0;--line:#294036;--pale:#1b3427;--shadow:0 12px 34px rgba(0,0,0,.22)}
+body.dark-mode .main,body.dark-mode .content{background:var(--bg)}
+body.dark-mode .top{background:rgba(15,28,21,.88);border-color:var(--line)}
+body.dark-mode .crumb{color:#9aaba0}
+body.dark-mode .crumb b,body.dark-mode .hero h1,body.dark-mode .kpi strong,body.dark-mode .cand b,body.dark-mode .section-title{color:#e8f4eb}
+body.dark-mode .icon-btn,body.dark-mode .logout-btn,body.dark-mode .btn,body.dark-mode .select,body.dark-mode .search input,body.dark-mode .date-filter,.dark-mode .date-filter input{background:#16271f;color:#e8f4eb;border-color:var(--line)}
+body.dark-mode .btn.soft{background:#1b3427}
+body.dark-mode .workspace,body.dark-mode .kpi,body.dark-mode .overview-card,body.dark-mode .focus-card,body.dark-mode .report-panel,body.dark-mode .settings-card,body.dark-mode .modal,body.dark-mode .schedule-modal,body.dark-mode .invite-modal,body.dark-mode .outcome-modal,body.dark-mode .interview-detail-modal,body.dark-mode .password-modal{background:var(--card);border-color:var(--line);color:var(--text)}
+body.dark-mode .toolbar{background:linear-gradient(180deg,#14241c,#14231b);border-color:var(--line)}
+body.dark-mode .table th{background:#172920;color:#8fa196;border-color:var(--line)}
+body.dark-mode .table td{border-color:#243a2f}
+body.dark-mode .table tbody tr:hover{background:#182b22}
+body.dark-mode .info,body.dark-mode .detail-card,body.dark-mode .audit-item,body.dark-mode .schedule-note,body.dark-mode .interview-note,body.dark-mode .login-card{background:#17271f;border-color:var(--line)}
+body.dark-mode .modal-head,body.dark-mode .schedule-head,body.dark-mode .invite-head,body.dark-mode .outcome-head,body.dark-mode .password-head{background:var(--card);border-color:var(--line)}
+body.dark-mode .close{background:#16271f;color:#b8c8bd;border-color:var(--line)}
+body.dark-mode .search{background:transparent}
+body.dark-mode .search input::placeholder{color:#718278}
+body.dark-mode .login-gate{background:radial-gradient(circle at 50% 8%,rgba(248,236,54,.08),transparent 30%),#0c1510}
+body.dark-mode .login-card{background:#14231b;border-color:#294036}
+body.dark-mode .login-title{color:#edf5ef}
+body.dark-mode .login-sub,body.dark-mode .login-note{color:#9aaba0}
+body.dark-mode .login-field label{color:#d9e8dd}
+body.dark-mode .login-field input{background:#102019;color:#edf5ef;border-color:#294036}
+body.dark-mode .password-input-wrap input{background:#102019;color:#edf5ef}
+body.dark-mode .password-toggle{background:#1b3427;color:#d8e9dd}
+body.dark-mode .side-bottom{border-color:rgba(255,255,255,.07)}
+body.dark-mode .pill.p-new{background:#3c350f;color:#f5d95b}
+body.dark-mode .p-review{background:#202b3d;color:#aebfe8}
+body.dark-mode .p-interview{background:#1d3048;color:#9fc0ef}
+body.dark-mode .p-selected{background:#183822;color:#9cdda7}
+body.dark-mode .p-rejected{background:#422421;color:#e9aaa3}
+/* Device sizing */
+@media(max-width:1250px){#applicationsPage .toolbar .filters{grid-template-columns:repeat(4,minmax(120px,1fr))}}
+@media(max-width:850px){
+  .menu-mobile{display:grid}
+  .sidebar{width:270px;transform:translateX(-100%);transition:transform .22s ease;box-shadow:16px 0 45px rgba(0,0,0,.12)}
+  .sidebar.open{transform:translateX(0)}
+  .brand{height:92px;padding:0 22px;justify-content:flex-start}
+  .brand img,.brand img.logo-ok{max-width:190px;max-height:68px}
+  .nav button span{display:block}.nav button{justify-content:flex-start}.nav-label,.side-bottom{display:block}
+  .main{margin-left:0;width:100%}
+  .top{height:70px;padding:0 14px}.top-right{gap:8px}.top-right .notification-btn{display:none}
+  .profile{max-width:145px}.profile>div:first-child{display:block}
+  .content{padding:20px 14px 35px}
+  #applicationsPage .toolbar .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .login-card{padding:32px 22px 26px;border-radius:22px}.login-logo{height:76px}.login-logo img{max-width:215px;max-height:70px}.login-title{font-size:23px;white-space:nowrap}
+  .top-left .crumb{font-size:10px}.profile{max-width:112px}.profile b{font-size:10px}.profile span{font-size:8px}.avatar{width:34px;height:34px}
+  #applicationsPage .toolbar{padding:13px}.filters{gap:7px}#applicationsPage .toolbar .filters{grid-template-columns:1fr 1fr}.date-filter{min-width:0}
+  .logout-btn{padding:0 8px;font-size:8px}
+}
+@media(max-width:400px){.profile{display:none}.login-title{font-size:21px}.login-sub{font-size:9.5px}.login-card{padding-left:18px;padding-right:18px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.duplicate-badge{display:inline-flex;align-items:center;gap:5px;margin-left:7px;padding:3px 7px;border-radius:999px;background:#fff8c7;color:#6d6418;border:1px solid #eee29a;font-size:10px;font-weight:700;white-space:nowrap;vertical-align:middle}.duplicate-badge button{border:0;background:transparent;color:inherit;font:inherit;padding:0;cursor:pointer}.history-modal .modal-body{padding-top:8px}.history-list{display:grid;gap:10px}.history-card{border:1px solid #e7ece8;border-radius:14px;padding:14px;background:#fff;display:flex;justify-content:space-between;gap:16px;align-items:center}.history-card.current{border-color:#d8d36b;background:#fffef0}.history-main{min-width:0}.history-main strong{display:block;font-size:14px}.history-main span{display:block;color:#657068;font-size:12px;margin-top:4px}.history-meta{text-align:right;white-space:nowrap}.history-meta small{display:block;color:#657068;margin-bottom:6px}.history-empty{padding:24px;text-align:center;color:#657068}
+</style>
+<link rel="stylesheet" href="premium.css">
+</head>
+<body>
+<div class="login-gate" id="loginGate">
+  <div class="login-shell">
+    <div class="login-card">
+      <div class="login-logo"><img src="logo.png" alt="Tarai Gold" onerror="this.style.display='none'" /></div>
+      <div class="login-kicker">Secure access</div>
+      <h1 class="login-title">WELCOME TO TARIGOLD</h1>
+      <p class="login-sub">To manage Tarai Gold job applications, please log in with your authorized account.</p>
+      <div class="login-error" id="loginError"></div>
+      <form id="loginForm">
+        <div class="login-field"><label>Email address</label><input id="loginEmail" autocomplete="off" type="email" autocomplete="username" required placeholder="name@company.com"></div>
+        <div class="login-field"><label>Password</label><input id="loginPassword" autocomplete="off" type="password" autocomplete="current-password" required placeholder="Enter your password"></div>
+        <button class="login-btn" id="loginBtn" type="submit">Sign in</button>
+      </form>
+      <div class="login-note">Only accounts explicitly authorized by the HR system administrator can access this dashboard.</div>
+    </div>
+  </div>
+</div>
+<div id="dashboardApp" style="display:none">
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><img src="logo.png" alt="" onload="this.classList.add('logo-ok')" onerror="this.remove()"><div class="logo-placeholder" aria-hidden="true"></div></div>
+  <nav class="nav">
+    <div class="nav-label">Recruitment</div>
+    <button class="active" data-page="dashboard"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg><span>Dashboard</span></button>
+    <button data-page="applications"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 5h16v15H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg><span>Applications</span></button>
+    <button data-page="interviews"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h3M8 17h6"/></svg><span>Interviews</span></button>
+    <button data-page="reports"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/><path d="M3 20h18"/></svg><span>Reports</span></button>
+    <div class="nav-label" style="margin-top:20px">Management</div>
+    <button data-page="settings"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="m19.4 15 .1.1a1.8 1.8 0 0 1-2.5 2.5l-.1-.1a1.8 1.8 0 0 0-3.1 1v.2a1.8 1.8 0 0 1-3.6 0v-.2a1.8 1.8 0 0 0-3.1-1l-.1.1a1.8 1.8 0 1 1-2.5-2.5l.1-.1a1.8 1.8 0 0 0-1-3.1h-.2a1.8 1.8 0 1 1 0-3.6h.2a1.8 1.8 0 0 0 1-3.1l-.1-.1a1.8 1.8 0 1 1 2.5-2.5l.1.1a1.8 1.8 0 0 0 3.1-1v-.2a1.8 1.8 0 0 1 3.6 0v.2a1.8 1.8 0 0 0 3.1 1l.1-.1a1.8 1.8 0 1 1 2.5 2.5l-.1.1a1.8 1.8 0 0 0 1 3.1h.2a1.8 1.8 0 1 1 0 3.6h-.2a1.8 1.8 0 0 0-1 3.1z"/></svg><span>Settings</span></button>
+  </nav>
+  <div class="side-bottom">Taraigold workspace<br>Secure by Universal Industries</div>
+</aside>
+<div class="mobile-overlay" id="mobileOverlay" aria-hidden="true"></div>
+<main class="main">
+<header class="top"><div class="top-left"><button class="menu-mobile icon-btn" id="mobileMenuBtn" type="button" aria-label="Open navigation" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><div class="crumb">Recruitment <b>/ Dashboard</b></div></div><div class="top-right"><button class="icon-btn theme-toggle" id="themeToggle" type="button" title="Toggle dark mode" aria-label="Toggle dark mode"><svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg><svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.5 14.8A8.5 8.5 0 0 1 9.2 3.5 8.6 8.6 0 1 0 20.5 14.8z"/></svg></button><button class="icon-btn notification-btn" title="Notifications" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></button><div class="profile"><div><b id="profileName">HR Administrator</b><span id="profileRole">Human Resources</span></div><div class="avatar" id="profileAvatar">HR</div></div><button class="logout-btn" id="logoutBtn" type="button">Sign out</button></div></header>
+<section class="content">
+  <div class="page-section is-active" id="dashboardPage">
+  <div class="hero"><div><div class="eyebrow">Recruitment workspace</div><h1 id="dashboardGreeting">Recruitment dashboard</h1><p>Review candidates, manage applications and keep interviews moving.</p></div><div class="hero-actions"><button class="btn soft" id="exportBtn">Export CSV</button><button class="btn primary" id="allAppsBtn">View applications</button></div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="kpi-top"><span class="kpi-label">Total applications</span><span class="kpi-icon">◫</span></div><strong id="kpiTotal">0</strong><small>All received applications</small></div>
+    <div class="kpi"><div class="kpi-top"><span class="kpi-label">New</span><span class="kpi-icon">＋</span></div><strong id="kpiNew">0</strong><small>Awaiting review</small></div>
+    <div class="kpi"><div class="kpi-top"><span class="kpi-label">Shortlisted</span><span class="kpi-icon">✓</span></div><strong id="kpiShort">0</strong><small>Ready for next step</small></div>
+    <div class="kpi"><div class="kpi-top"><span class="kpi-label">Interviews</span><span class="kpi-icon">▣</span></div><strong id="kpiInterview">0</strong><small>Scheduled candidates</small></div>
+    <div class="kpi"><div class="kpi-top"><span class="kpi-label">Selected</span><span class="kpi-icon">★</span></div><strong id="kpiSelected">0</strong><small>Selected candidates</small></div>
+  </div>
+  <div class="dashboard-overview">
+    <div class="overview-card"><div class="overview-head"><div><div class="eyebrow">Quick access</div><h3>Recruitment overview</h3><p>Move from application review to interview management without leaving the dashboard.</p></div><button class="btn primary" id="dashboardApplicationsBtn">Open applications</button></div>
+      <div class="quick-grid">
+        <button class="quick-card" data-go="applications"><strong>Applications</strong><span>Review candidates, documents and application status.</span><b>Open →</b></button>
+        <button class="quick-card" data-go="interviews"><strong>Interviews</strong><span>Schedule, invite, reschedule and track interviews.</span><b>Open →</b></button>
+        <button class="quick-card" data-go="reports"><strong>Reports</strong><span>See recruitment performance and export reports.</span><b>Open →</b></button>
+        <button class="quick-card" id="deletedRecordsBtn" type="button"><strong>Deleted applications</strong><span>View applications permanently deleted by HR users.</span><b>View records →</b></button>
+      </div>
+    </div>
+    <div class="dashboard-focus">
+      <div class="focus-card">
+        <div class="focus-head"><div><div class="eyebrow">Next actions</div><h3>Upcoming interviews</h3><p>Your next scheduled candidate meetings.</p></div><button class="btn" id="dashboardInterviewsBtn">View all</button></div>
+        <div id="dashboardUpcomingInterviews" class="focus-list"></div>
+      </div>
+      <div class="focus-card">
+        <div class="focus-head"><div><div class="eyebrow">Candidate flow</div><h3>Recruitment pipeline</h3><p>Where candidates currently stand.</p></div><button class="btn" id="dashboardPipelineBtn">Applications</button></div>
+        <div id="dashboardPipeline" class="pipeline-mini"></div>
+      </div>
+    </div>
+    <div class="overview-card" style="margin-top:16px"><div class="overview-head"><div><div class="eyebrow">Latest activity</div><h3>Recent applications</h3></div><button class="btn" id="dashboardRecentRefresh">Refresh</button></div><div id="recentApplications" class="recent-list"></div></div>
+  </div>
+  </div>
+  <div class="workspace page-section" id="applicationsPage"><div id="liveStatus" style="display:none"></div>
+    <div class="toolbar"><div class="search"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="search" placeholder="Search applicant by name..." aria-label="Search applicants by name"></div><div class="filters"><select class="select" id="state"><option value="">All states</option></select><select class="select" id="position"><option value="">All positions</option></select><select class="select" id="hq"><option value="">All HQs</option></select><select class="select" id="status"><option value="">All status</option><option>New</option><option>Under Review</option><option>Shortlisted</option><option>Interview Scheduled</option><option>Interview Completed</option><option>Interview Not Attended</option><option>Interview Connection Error</option><option>Interview Cancelled</option><option>Interview Other</option><option>Selected</option><option>Rejected</option></select><label class="date-filter"><span>From</span><input type="date" id="dateFrom" aria-label="Application date from"></label><label class="date-filter"><span>To</span><input type="date" id="dateTo" aria-label="Application date to"></label><button class="btn" id="clearBtn">Clear</button><button class="btn soft" id="exportFilteredBtn" type="button">Export filtered</button><button class="btn primary" id="exportAllBtn" type="button">Export all</button></div></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Applicant</th><th>Position</th><th>Location</th><th>Status</th><th>Applied</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="bottom"><span id="countText"></span><div class="page-btns"><button class="page-btn active">1</button></div></div>
+  </div>
+
+  <section class="interview-workspace page-section" id="interviewWorkspace" aria-labelledby="interviewManagementTitle">
+    <div class="interview-head">
+      <div><div class="eyebrow">Recruitment / Interviews</div><h2 id="interviewManagementTitle">Interview Management</h2><p>Schedule, manage, invite and track candidate interviews from one place.</p></div>
+      <div class="interview-filters"><input class="select interview-search" id="interviewSearch" type="search" aria-label="Search interviews" placeholder="Search candidate..."/><select class="select" id="interviewStatusFilter" aria-label="Filter interviews by status"><option value="">All interviews</option><option value="Scheduled">Scheduled</option><option value="Completed">Completed</option><option value="Cancelled">Cancelled</option><option value="Not Attended">Not Attended</option><option value="Connection Error">Connection Error</option><option value="Other">Other</option></select><button class="btn" id="refreshInterviewsBtn">Refresh</button></div>
+    </div>
+    <div class="interview-summary" id="interviewSummary"></div>
+    <div class="table-wrap interview-table-wrap"><table class="interview-table"><colgroup><col class="candidate-col"><col class="datetime-col"><col class="position-col"><col class="interviewer-col"><col class="type-col"><col class="status-col"><col class="actions-col"></colgroup><thead><tr><th>Candidate</th><th>Date &amp; Time</th><th>Position</th><th>Interviewer</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead><tbody id="interviewRows"></tbody></table></div>
+    <div class="calendar-panel">
+      <div class="calendar-head">
+        <div class="calendar-title"><div><div class="eyebrow">Schedule overview</div><h3 id="calendarMonthTitle">Interview Calendar</h3><p>Click any interview to open its full management details.</p></div></div>
+        <div class="calendar-nav"><button class="btn" id="calendarPrev" type="button">← Prev</button><button class="btn" id="calendarToday" type="button">Today</button><button class="btn" id="calendarNext" type="button">Next →</button></div>
+      </div>
+      <div class="calendar-grid" id="interviewCalendar"></div>
+      <div class="calendar-legend"><span><i class="calendar-dot"></i> Scheduled</span><span><i class="calendar-dot completed"></i> Completed</span><span><i class="calendar-dot cancelled"></i> Cancelled / not attended</span><span><i class="calendar-dot other"></i> Other outcomes</span></div>
+    </div>
+  </section>
+
+  <section class="reports-page page-section" id="reportsPage">
+    <div class="page-title"><div><div class="eyebrow">Recruitment / Reports</div><h2>Recruitment Reports</h2><p>Live recruitment metrics based on the applications and interviews currently stored in Firebase.</p></div><button class="btn primary" id="exportFullReport">Export report</button></div>
+    <div class="report-grid" id="reportCards"></div>
+    <div class="report-panel"><div class="overview-head"><div><div class="eyebrow">Pipeline</div><h3>Application pipeline</h3></div></div><div id="pipelineRows" class="pipeline-list"></div></div>
+    <div class="report-panel"><div class="overview-head"><div><div class="eyebrow">Interviews</div><h3>Interview performance</h3></div></div><div id="interviewReportRows" class="pipeline-list"></div></div>
+  </section>
+
+  <section class="settings-page page-section" id="settingsPage">
+    <div class="page-title"><div><div class="eyebrow">Management / Settings</div><h2>Account & Settings</h2><p>Manage the signed-in HR profile and dashboard preferences.</p></div></div>
+    <div class="settings-grid">
+      <div class="settings-card"><div class="settings-icon">HR</div><h3 id="settingsName">HR User</h3><p id="settingsEmail">—</p><span class="settings-role" id="settingsRole">HR User</span></div>
+      <div class="settings-card"><h3>Security</h3><p>This dashboard uses Firebase Authentication and only authorized HR accounts can access recruitment data.</p><div class="setting-row"><span>Session persistence</span><b>Current tab only</b></div><div class="setting-row"><span>Public registration</span><b>Disabled</b></div><div class="setting-row"><span>Applicant access</span><b>HR only</b></div></div>
+      <div class="settings-card"><h3>Workspace</h3><p>Use the controls below to keep the dashboard clean and current.</p><div class="settings-actions"><button class="btn" id="changePasswordBtn">Change password</button><button class="btn" id="settingsRefresh">Refresh data</button><button class="btn" id="settingsLogout">Sign out</button></div></div>
+    </div>
+  </section>
+</section>
+</main></div>
+</div><div class="overlay" id="overlay"><div class="modal"><div class="modal-head"><div class="modal-title"><div class="avatar" id="modalAvatar">--</div><div><h2 id="modalName">Applicant</h2><p id="modalSub">Candidate profile</p></div></div><button class="close" id="closeModal">×</button></div><div class="modal-body"><div class="profile-grid"><div class="big-photo" id="modalPhoto">PHOTO</div><div><div class="profile-actions"><button class="btn primary" id="callBtn">☎ Call</button><button class="btn soft" id="waBtn">◉ WhatsApp</button><button class="btn" id="mailBtn">✉ Email</button><button class="btn" id="interviewBtn">▣ Schedule interview</button><button class="btn danger" id="deleteApplicantBtn" type="button">⌫ Delete application</button></div><div class="info-grid" id="infoGrid"></div></div></div><div class="section-title">Documents</div><div class="docs" id="docs"></div><div class="section-title">Last interview result</div><div id="lastInterviewResult" class="last-interview-result"><div class="last-result-empty">Loading interview history…</div></div><div class="section-title">Application status</div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select class="select" id="modalStatus"><option>New</option><option>Under Review</option><option>Shortlisted</option><option>Interview Scheduled</option><option>Interview Completed</option><option>Interview Not Attended</option><option>Interview Connection Error</option><option>Interview Cancelled</option><option>Interview Other</option><option>Selected</option><option>Rejected</option></select><button class="btn primary" id="saveStatus">Save status</button></div><div id="statusAudit"></div></div></div></div>
+<div class="overlay" id="deletedRecordsOverlay" aria-hidden="true">
+  <div class="modal deleted-modal">
+    <div class="modal-head">
+      <div class="modal-title"><div class="avatar">DA</div><div><h2>Deleted Applications</h2><p>Permanent deletion records</p></div></div>
+      <button class="close" id="closeDeletedRecords" type="button">×</button>
+    </div>
+    <div class="modal-body"><div id="deletedRecordsList" class="deleted-modal-list"></div></div>
+  </div>
+</div>
+<div class="overlay history-modal" id="historyOverlay" aria-hidden="true">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title"><div class="avatar" id="historyAvatar">--</div><div><h2 id="historyTitle">Application History</h2><p id="historySub">Multiple applications from this candidate</p></div></div>
+      <button class="close" id="closeHistory" type="button">×</button>
+    </div>
+    <div class="modal-body"><div id="historyList" class="history-list"></div></div>
+  </div>
+</div>
+<div class="overlay" id="mailOverlay">
+  <div class="modal mail-modal">
+    <div class="modal-head">
+      <div class="modal-title">
+        <div class="avatar" id="mailAvatar">--</div>
+        <div>
+          <h2 id="mailName">Send email</h2>
+          <p id="mailSub">Choose the purpose of this email</p>
+        </div>
+      </div>
+      <button class="close" id="closeMailModal">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#657068;line-height:1.6">
+        Select a reason below. Your email application will open with the applicant's email address, subject and a ready-to-edit message.
+      </div>
+      <div class="mail-purpose-grid">
+        <button class="mail-purpose" data-purpose="documents">
+          <strong>Documents missing</strong>
+          <span>Ask the applicant to submit the missing required documents.</span>
+        </button>
+        <button class="mail-purpose" data-purpose="photo">
+          <strong>Photo missing</strong>
+          <span>Ask the applicant to provide or resubmit their photograph.</span>
+        </button>
+        <button class="mail-purpose" data-purpose="resume">
+          <strong>Resume / Biodata missing</strong>
+          <span>Ask the applicant to send or resubmit the resume or biodata.</span>
+        </button>
+        <button class="mail-purpose" data-purpose="address">
+          <strong>Address proof missing</strong>
+          <span>Ask the applicant to send or resubmit the address proof.</span>
+        </button>
+        <button class="mail-purpose" data-purpose="other">
+          <strong>Other follow-up</strong>
+          <span>Open a general application-related email you can edit before sending.</span>
+        </button>
+      </div>
+      <button class="btn mail-cancel" id="cancelMailModal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="schedule-overlay" id="scheduleOverlay">
+  <div class="schedule-modal">
+    <div class="schedule-head">
+      <div><h2>Schedule Interview</h2><p>Create a formal interview appointment for this candidate.</p></div>
+      <button class="close" id="closeSchedule">×</button>
+    </div>
+    <div class="schedule-body">
+      <div class="schedule-candidate"><b id="scheduleCandidateName">Candidate</b><span id="scheduleCandidateSub">Position · Location</span></div>
+      <div class="schedule-error" id="scheduleError"></div>
+      <div class="schedule-grid">
+        <div class="schedule-field"><label>Interview date</label><input type="date" id="interviewDate"></div>
+        <div class="schedule-field"><label>Interview time</label><input type="time" id="interviewTime"></div>
+        <div class="schedule-field"><label>Duration</label><select id="interviewDuration"><option value="30">30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option><option value="90">90 minutes</option></select></div>
+        <div class="schedule-field"><label>Interview type</label><select id="interviewType"><option value="Video Interview">Video Interview</option><option value="Phone Interview">Phone Interview</option></select></div>
+        <div class="schedule-field" style="grid-column:1/-1"><label>Interviewer</label><input class="readonly-field" id="interviewerName" readonly></div>
+      </div>
+      <div class="schedule-note">A unique video room will be created for this interview. After scheduling, HR can copy the invite or open Gmail with the complete invitation ready to send.</div>
+      <div class="schedule-actions"><button class="btn" id="cancelSchedule">Cancel</button><button class="btn primary" id="saveInterview">Save interview</button></div>
+    </div>
+  </div>
+</div>
+<div class="invite-overlay" id="inviteOverlay">
+  <div class="invite-modal">
+    <div class="invite-head">
+      <div><h2>Send interview invitation</h2><p>Choose how you want to send the prepared invitation to the candidate.</p></div>
+      <button class="close" id="closeInvite">×</button>
+    </div>
+    <div class="invite-body">
+      <div class="invite-candidate"><b id="inviteCandidateName">Candidate</b><span id="inviteCandidateSub">Interview details</span></div>
+      <div class="invite-options">
+        <button type="button" class="invite-option mail" id="inviteMailBtn"><strong>Mail invitation</strong><span>Open Gmail with the complete interview invitation already written.</span></button>
+        <button type="button" class="invite-option whatsapp" id="inviteWhatsAppBtn"><strong>WhatsApp invitation</strong><span>Open WhatsApp with the complete interview message already written.</span></button>
+      </div>
+    </div>
+    <div class="invite-footer"><button type="button" class="btn" id="cancelInvite">Cancel</button></div>
+  </div>
+</div>
+<div class="outcome-overlay" id="outcomeOverlay" aria-hidden="true">
+  <div class="outcome-modal" role="dialog" aria-modal="true" aria-labelledby="outcomeTitle">
+    <div class="outcome-head">
+      <div><h2 id="outcomeTitle">Record interview outcome</h2><p id="outcomeSubtitle">Please record what happened with this interview.</p></div>
+      <button class="close" id="closeOutcome" type="button">×</button>
+    </div>
+    <div class="outcome-body">
+      <div class="outcome-candidate"><b id="outcomeCandidateName">Candidate</b><span id="outcomeCandidateSub">Interview details</span></div>
+      <div class="outcome-error" id="outcomeError"></div>
+      <div class="outcome-note">The system does not assume that an interview happened just because the scheduled time passed. Choose the actual outcome manually. A rating is available only when the interview is marked <strong>Completed</strong>.</div>
+      <div class="outcome-field"><label for="outcomeStatus">Interview outcome</label><select id="outcomeStatus"><option value="">Select outcome</option><option value="Completed">Completed</option><option value="Not Attended">Not Attended</option><option value="Connection Error">Connection Error</option><option value="Cancelled">Cancelled</option><option value="Other">Other</option></select></div>
+      <div class="outcome-field rating-wrap" id="ratingWrap"><label for="outcomeRating">Interview rating (out of 10)</label><input id="outcomeRating" type="number" min="0" max="10" step="1" placeholder="e.g. 8"/></div>
+      <div class="outcome-field"><label for="outcomeNotes">Outcome notes</label><textarea id="outcomeNotes" placeholder="Add a short note about the interview outcome..."></textarea></div>
+      <div class="outcome-actions"><button class="btn" id="cancelOutcome" type="button">Cancel</button><button class="btn primary" id="saveOutcome" type="button">Save outcome</button></div>
+    </div>
+  </div>
+</div>
+
+<div class="interview-detail-overlay" id="interviewDetailOverlay">
+  <div class="interview-detail-modal">
+    <div class="schedule-head"><div><div class="eyebrow">Interview details</div><h2 id="detailTitle">Interview</h2><p id="detailSub">Candidate interview</p></div><button class="close" id="closeInterviewDetail">×</button></div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="password-overlay" id="passwordOverlay" aria-hidden="true">
+  <div class="password-modal" role="dialog" aria-modal="true" aria-labelledby="passwordTitle">
+    <div class="password-head">
+      <div><div class="eyebrow">Account security</div><h2 id="passwordTitle">Change password</h2><p>Update your Firebase account password securely. Your password is never stored in Firestore.</p></div>
+      <button class="close" id="closePassword" type="button" aria-label="Close">×</button>
+    </div>
+    <form class="password-body" id="passwordForm" autocomplete="off">
+      <div class="password-error" id="passwordError"></div>
+      <div class="password-field"><label for="currentPassword">Current password</label><div class="password-input-wrap"><input id="currentPassword" type="password" autocomplete="current-password" placeholder="Enter your current password" required><button type="button" class="password-toggle" data-target="currentPassword" aria-label="Show password">Show</button></div></div>
+      <div class="password-field"><label for="newPassword">New password</label><div class="password-input-wrap"><input id="newPassword" type="password" autocomplete="new-password" placeholder="Create a new password" required><button type="button" class="password-toggle" data-target="newPassword" aria-label="Show password">Show</button></div><div class="password-strength"><span id="passwordStrengthBar"></span></div><div class="password-hint" id="passwordHint">Use at least 8 characters with a mix of letters and numbers.</div></div>
+      <div class="password-field"><label for="confirmPassword">Confirm new password</label><div class="password-input-wrap"><input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Re-enter the new password" required><button type="button" class="password-toggle" data-target="confirmPassword" aria-label="Show password">Show</button></div></div>
+      <div class="password-actions"><button class="btn" id="cancelPassword" type="button">Cancel</button><button class="btn primary" id="savePassword" type="submit">Update password</button></div>
+    </form>
+  </div>
+</div>
+<script type="module">
+import { getAuth, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, getDoc, getDocs, collection, onSnapshot, doc, updateDoc, addDoc, deleteDoc, writeBatch, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+// ===== STEP 11: INTERVIEW EMAIL CONFIG =====
+// Create a dedicated EmailJS template for interview invitations, then replace the placeholder below.
+const INTERVIEW_EMAIL_SERVICE_ID = "service_d0gl05c";
+const INTERVIEW_EMAIL_TEMPLATE_ID = "TEMPLATE_INTERVIEW_INVITATION";
+const INTERVIEW_EMAIL_PUBLIC_KEY = "dM9A3sylqe-4Ld6Hb";
+const AUTO_SEND_INTERVIEW_INVITATION = false;
+try { if (window.emailjs) window.emailjs.init({ publicKey: INTERVIEW_EMAIL_PUBLIC_KEY }); } catch(e) { console.warn("EmailJS initialization failed:", e); }
+
+let apps=[];let current=null;let unsubscribeApplicants=null;let unsubscribeAuditLogs=null;let auditLogs=[];let interviews=[];let scheduleCandidate=null;let inviteInterviewId=null;let outcomeInterviewId=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+function initials(n){return String(n||'').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()||'NA'}
+function cls(s){return {'New':'p-new','Under Review':'p-review','Shortlisted':'p-short','Interview Scheduled':'p-interview','Interview Completed':'p-selected','Interview Not Attended':'p-rejected','Interview Connection Error':'p-review','Interview Cancelled':'p-rejected','Interview Other':'p-review','Selected':'p-selected','Rejected':'p-rejected'}[s]||'p-new'}
+function formatDate(v){if(!v)return'—';try{const d=v?.toDate?v.toDate():(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)?new Date(+v.slice(0,4),+v.slice(5,7)-1,+v.slice(8,10)):new Date(v));return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}catch(_){return String(v)}}
+function normalizeApplicant(id,d){return{id,gmailMessageId:d.gmailMessageId||id,subject:d.subject||'',name:d.name||'Unnamed applicant',dob:d.dob||'—',phone:String(d.phone||'').replace(/^\+91\s*/,''),email:d.email||'—',state:String(d.state||'—').trim(),position:String(d.position||'—').trim(),hq:String(d.headquarter||d.hq||'—').trim(),status:String(d.status||'New').trim(),date:formatDate(d.appliedAt||d.importedAt),appliedAt:d.appliedAt||null,photo:d.photoUrl||'',resume:d.resumeUrl||'',address:d.addressProofUrl||'',lastInterviewResult:d.lastInterviewResult||'',lastInterviewRating:d.lastInterviewRating??null,lastInterviewOutcomeNotes:d.lastInterviewOutcomeNotes||'',lastInterviewDate:d.lastInterviewDate||'',lastInterviewTime:d.lastInterviewTime||'',lastInterviewDuration:d.lastInterviewDuration||null,lastInterviewType:d.lastInterviewType||'',lastInterviewInterviewer:d.lastInterviewInterviewer||'',lastInterviewId:d.lastInterviewId||null,statusUpdatedByUid:d.statusUpdatedByUid||'',statusUpdatedByName:d.statusUpdatedByName||'',statusUpdatedByDesignation:d.statusUpdatedByDesignation||'',statusUpdatedAt:d.statusUpdatedAt||null}}
+function applicationDateKey(a){const v=a?.appliedAt;if(!v)return '';try{const d=v?.toDate?v.toDate():new Date(v);if(Number.isNaN(d.getTime()))return '';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}catch(_){return ''}}
+function filtered(){const q=$('search').value.toLowerCase().trim(),st=$('state').value.trim(),po=$('position').value.trim(),h=$('hq').value.trim(),ss=$('status').value.trim(),from=$('dateFrom')?.value||'',to=$('dateTo')?.value||'';return apps.filter(a=>{const day=applicationDateKey(a);return (!q||[a.name,a.phone,a.email,a.position,a.hq,a.state].join(' ').toLowerCase().includes(q))&&(!st||String(a.state||'').trim()===st)&&(!po||String(a.position||'').trim()===po)&&(!h||String(a.hq||'').trim()===h)&&(!ss||String(a.status||'').trim()===ss)&&(!from||!!day&&day>=from)&&(!to||!!day&&day<=to)})}
+function setOptions(id,label,values,preferred=''){const e=$(id);const unique=[...new Set(values.filter(v=>v&&String(v).trim()&&v!=='—').map(v=>String(v).trim()))].sort((a,b)=>a.localeCompare(b));e.innerHTML=`<option value="">${label}</option>`+unique.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(unique.includes(preferred))e.value=preferred;else e.value=''}
+function populateFilterOptions(preserve=true){
+  const oldState=String($('state').value||'').trim();
+  const oldPosition=String($('position').value||'').trim();
+  const oldHq=String($('hq').value||'').trim();
+  setOptions('state','All states',apps.map(a=>a.state),preserve?oldState:'');
+  const state=String($('state').value||'').trim();
+  setOptions('position','All positions',apps.filter(a=>!state||String(a.state||'').trim()===state).map(a=>a.position),preserve?oldPosition:'');
+  const position=String($('position').value||'').trim();
+  setOptions('hq','All HQs',apps.filter(a=>(!state||String(a.state||'').trim()===state)&&(!position||String(a.position||'').trim()===position)).map(a=>a.hq),preserve?oldHq:'');
+}
+function refreshDependentFiltersAfterState(){
+  const state=String($('state').value||'').trim();
+  setOptions('position','All positions',apps.filter(a=>!state||String(a.state||'').trim()===state).map(a=>a.position),'');
+  setOptions('hq','All HQs',apps.filter(a=>!state||String(a.state||'').trim()===state).map(a=>a.hq),'');
+}
+function refreshDependentFiltersAfterPosition(){
+  const state=String($('state').value||'').trim();
+  const position=String($('position').value||'').trim();
+  setOptions('hq','All HQs',apps.filter(a=>(!state||String(a.state||'').trim()===state)&&(!position||String(a.position||'').trim()===position)).map(a=>a.hq),'');
+}
+function normalizedPhone(a){return String(a?.phone||'').replace(/\D/g,'').replace(/^91/,'')}
+function relatedApplications(applicant){const key=normalizedPhone(applicant);if(!key)return[];return apps.filter(a=>normalizedPhone(a)===key).sort((a,b)=>new Date(b.appliedAt?.toDate?b.appliedAt.toDate():b.appliedAt||0)-new Date(a.appliedAt?.toDate?a.appliedAt.toDate():a.appliedAt||0))}
+function openApplicationHistory(id){const a=getApplicant(id);if(!a)return;const list=relatedApplications(a);if(list.length<2){openApplicant(id);return} $('historyAvatar').textContent=initials(a.name);$('historyTitle').textContent=`${a.name} — ${list.length} Applications`;$('historySub').textContent=`Applications linked by mobile number · ${a.phone?'+'+a.phone:'No phone'}`;$('historyList').innerHTML=list.map((x,i)=>`<div class="history-card ${x.id===a.id?'current':''}"><div class="history-main"><strong>${esc(x.position)}</strong><span>${esc(x.hq)}, ${esc(x.state)}</span><span>Status: ${esc(x.status)} · Application date: ${esc(x.date)}</span></div><div class="history-meta"><small>${x.id===a.id?'Current application':'Application '+(i+1)}</small><button class="btn" onclick="closeApplicationHistory();openApplicant('${esc(x.id)}')">View</button></div></div>`).join('');$('historyOverlay').classList.add('show')}
+function closeApplicationHistory(){$('historyOverlay').classList.remove('show')}
+window.openApplicationHistory=openApplicationHistory;window.closeApplicationHistory=closeApplicationHistory;
+function render(){const list=filtered();$('rows').innerHTML=list.length?list.map(a=>`<tr><td><div class="candidate"><div class="photo">${a.photo?`<img src="${esc(a.photo)}" alt="Applicant photo">`:initials(a.name)}</div><div class="cand"><b>${esc(a.name)}${relatedApplications(a).length>1?` <button class="duplicate-badge" type="button" title="View all applications from this mobile number" onclick="event.stopPropagation();openApplicationHistory('${esc(a.id)}')">${relatedApplications(a).length} Applications</button>`:''}</b><span>${a.phone?'+'+esc(a.phone.startsWith('91')?a.phone:'91 '+a.phone):'No phone'}</span></div></div></td><td>${esc(a.position)}</td><td>${esc(a.hq)}, ${esc(a.state)}</td><td><span class="pill ${cls(a.status)}">${esc(a.status)}</span></td><td>${esc(a.date)}</td><td><div class="row-actions"><button class="act" title="Call" onclick="callApp('${esc(a.id)}')">☎</button><button class="act" title="WhatsApp" onclick="waApp('${esc(a.id)}')">◉</button><button class="act" title="Email" onclick="mailApp('${esc(a.id)}')">✉</button><button class="act danger" title="Delete application" onclick="deleteApplication('${esc(a.id)}')">⌫</button><button class="more" onclick="openApplicant('${esc(a.id)}')">View</button></div></td></tr>`).join(''):`<tr><td colspan="6"><div class="empty">No applications found in Firestore.</div></td></tr>`;$('countText').textContent=`Showing ${list.length} of ${apps.length} applications`;updateKpis()}
+function updateKpis(){$('kpiTotal').textContent=apps.length;$('kpiNew').textContent=apps.filter(a=>a.status==='New').length;$('kpiShort').textContent=apps.filter(a=>a.status==='Shortlisted').length;$('kpiInterview').textContent=apps.filter(a=>a.status==='Interview Scheduled').length;$('kpiSelected').textContent=apps.filter(a=>a.status==='Selected').length}
+function getApplicant(id){return apps.find(x=>x.id===id)}
+async function deleteApplication(id){
+  const applicant=getApplicant(id);
+  if(!applicant||!window.hrFirebase?.db||!window.hrFirebase?.user){toast('Application could not be deleted.');return}
+  const actor=currentActor();
+  const confirmed=window.confirm(`Delete this application permanently?\n\nCandidate: ${applicant.name}\nPosition: ${applicant.position}\nApplication date: ${applicant.date}\n\nThis application will be permanently removed from the HR dashboard. The deletion will be recorded with your HR account. This action cannot be undone.`);
+  if(!confirmed)return;
+  try{
+    const db=window.hrFirebase.db;
+    const batch=writeBatch(db);
+    const auditRef=doc(collection(db,'auditLogs'));
+    batch.set(auditRef,{
+      action:'DELETE_APPLICATION',
+      applicantId:applicant.id,
+      gmailMessageId:applicant.gmailMessageId||'',
+      candidateName:applicant.name||'',
+      candidatePhone:applicant.phone||'',
+      candidateEmail:applicant.email||'',
+      state:applicant.state||'',
+      position:applicant.position||'',
+      headquarter:applicant.hq||'',
+      applicationDate:applicant.appliedAt||null,
+      previousStatus:applicant.status||'',
+      deletedByUid:actor.uid,
+      deletedByName:actor.name,
+      deletedByEmail:actor.email,
+      deletedByDesignation:actor.designation,
+      deletedAt:serverTimestamp()
+    });
+    batch.delete(doc(db,'applicants',applicant.id));
+    await batch.commit();
+    apps=apps.filter(a=>a.id!==applicant.id);
+    if(current?.id===applicant.id){current=null;$('overlay').classList.remove('show');}
+    render();
+    renderRecentApplications();
+    renderReports();
+    toast('Application permanently deleted and the action was recorded.');
+  }catch(e){
+    console.error('Application delete failed:',e);
+    toast('Could not delete application. Please try again.');
+  }
+}
+window.deleteApplication=deleteApplication;
+function phoneFor(a){const p=String(a?.phone||'').replace(/\D/g,'');return p?(p.startsWith('91')?p:'91'+p):''}
+function callApp(id){const a=getApplicant(id),p=phoneFor(a);if(a&&p)location.href='tel:+'+p;else toast('Applicant phone number is not available.')}
+function waApp(id){const a=getApplicant(id),p=phoneFor(a);if(a&&p)window.open('https://wa.me/'+p+'?text='+encodeURIComponent(`Hello ${a.name}, this is the HR team regarding your Tarai Gold job application for the ${a.position} position.`),'_blank');else toast('Applicant phone number is not available.')}
+function mailApp(id){const a=getApplicant(id);if(!a)return;if(!a.email||a.email==='—'){toast('Applicant email address is not available.');return}current=a;$('mailAvatar').textContent=initials(a.name);$('mailName').textContent=a.name;$('mailSub').textContent=`${a.email} · ${a.position}`;$('mailOverlay').classList.add('show')}
+function buildMailContent(a,purpose){const subjectMap={documents:'Tarai Gold Recruitment — Documents Required',photo:'Tarai Gold Recruitment — Photograph Required',resume:'Tarai Gold Recruitment — Resume / Biodata Required',address:'Tarai Gold Recruitment — Address Proof Required',other:'Tarai Gold Recruitment — Application Follow-up'};const bodyMap={documents:`Dear ${a.name},\n\nThank you for applying for the ${a.position} position at Tarai Gold.\n\nWe are reviewing your application and need the required documents to proceed. Please reply to this email with the missing document(s) at your earliest convenience.\n\nRegards,\nHR Team\nTarai Gold`,photo:`Dear ${a.name},\n\nThank you for applying for the ${a.position} position at Tarai Gold.\n\nWe are reviewing your application and require your photograph to proceed. Please reply to this email with the required photograph.\n\nRegards,\nHR Team\nTarai Gold`,resume:`Dear ${a.name},\n\nThank you for applying for the ${a.position} position at Tarai Gold.\n\nWe are reviewing your application and require your Resume / Biodata. Please reply to this email with the updated document.\n\nRegards,\nHR Team\nTarai Gold`,address:`Dear ${a.name},\n\nThank you for applying for the ${a.position} position at Tarai Gold.\n\nWe are reviewing your application and require your address proof. Please reply to this email with the required document.\n\nRegards,\nHR Team\nTarai Gold`,other:`Dear ${a.name},\n\nThank you for applying for the ${a.position} position at Tarai Gold.\n\nWe are following up regarding your job application for the ${a.position} position. Please reply to this email with the requested information.\n\nRegards,\nHR Team\nTarai Gold`};return{subject:subjectMap[purpose]||subjectMap.other,body:bodyMap[purpose]||bodyMap.other}}
+function openApplicantMail(purpose){if(!current)return;const m=buildMailContent(current,purpose);$('mailOverlay').classList.remove('show');const gmailUrl=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(current.email)}&su=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body)}`;window.open(gmailUrl,'_blank','noopener,noreferrer')}
+function resultBadgeClass(status){return status==='Completed'?'completed':status==='Not Attended'?'not-attended':status==='Cancelled'?'cancelled':status==='Connection Error'?'connection-error':status==='Other'?'other':'pending'}
+function renderLastInterviewResult(result){
+  const box=$('lastInterviewResult');if(!box)return;
+  if(!result){box.innerHTML='<div class="last-result-empty">No interview result has been recorded for this applicant yet.</div>';return}
+  const status=result.status||'Scheduled';
+  const isPending=!result.outcomeRecordedAt&&!['Completed','Not Attended','Connection Error','Cancelled','Other'].includes(status);
+  const label=isPending?'Outcome pending':status;
+  const badgeClass=isPending?'pending':resultBadgeClass(status);
+  const rating=status==='Completed'&&result.rating!==null&&result.rating!==undefined?`${result.rating} / 10`:'Not applicable';
+  const notes=result.outcomeNotes||'';
+  const date=result.interviewDate?formatDate(result.interviewDate):'—';
+  const time=result.interviewTime||'—';
+  box.innerHTML=`<div class="last-result-head"><div><div class="last-result-title">Most recent interview</div><div class="last-result-sub">${esc(result.position||current?.position||'Interview')} · ${esc(date)} · ${esc(time)} IST</div></div><span class="last-result-badge ${badgeClass}">${esc(label)}</span></div><div class="last-result-grid"><div class="last-result-item"><label>Result</label><strong>${esc(status)}</strong></div><div class="last-result-item"><label>Rating</label><strong>${esc(rating)}</strong></div><div class="last-result-item"><label>Interviewer</label><strong>${esc(result.interviewerName||'—')}</strong></div><div class="last-result-item"><label>Duration</label><strong>${esc(result.durationMinutes||30)} minutes</strong></div><div class="last-result-item"><label>Interview type</label><strong>${esc(result.interviewType||'Video Interview')}</strong></div><div class="last-result-item"><label>Interview date</label><strong>${esc(date)}</strong></div></div>${notes?`<div class="last-result-notes"><label>Outcome notes</label><p>${esc(notes)}</p></div>`:''}${result.id?`<div style="margin-top:10px"><button type="button" class="btn" onclick="openInterviewDetail('${esc(result.id)}')">Open interview record</button></div>`:''}`;
+}
+async function loadLastInterviewResult(applicant){
+  if(!applicant){renderLastInterviewResult(null);return}
+  if(applicant.lastInterviewResult){
+    renderLastInterviewResult({id:applicant.lastInterviewId||'',status:applicant.lastInterviewResult,rating:applicant.lastInterviewRating??null,outcomeNotes:applicant.lastInterviewOutcomeNotes||'',interviewDate:applicant.lastInterviewDate||'',interviewTime:applicant.lastInterviewTime||'',durationMinutes:applicant.lastInterviewDuration||30,interviewType:applicant.lastInterviewType||'Video Interview',interviewerName:applicant.lastInterviewInterviewer||'',position:applicant.position,outcomeRecordedAt:true});
+    return;
+  }
+  renderLastInterviewResult(null);
+  try{
+    if(!window.hrFirebase?.db||!applicant.id)return;
+    const snap=await getDocs(query(collection(window.hrFirebase.db,'interviews'),where('candidateId','==',applicant.id)));
+    const records=snap.docs.map(d=>({id:d.id,...d.data()})).filter(i=>i.outcomeRecordedAt||OUTCOME_APPLICANT_STATUS[i.status]||i.status==='Scheduled');
+    records.sort((a,b)=>{
+      const av=a.outcomeRecordedAt?.toDate?a.outcomeRecordedAt.toDate():a.outcomeRecordedAt?new Date(a.outcomeRecordedAt):interviewDateTime(a);
+      const bv=b.outcomeRecordedAt?.toDate?b.outcomeRecordedAt.toDate():b.outcomeRecordedAt?new Date(b.outcomeRecordedAt):interviewDateTime(b);
+      return bv-av;
+    });
+    renderLastInterviewResult(records[0]||null);
+  }catch(e){console.error('Last interview result read failed:',e);$('lastInterviewResult').innerHTML='<div class="last-result-empty">Interview history could not be loaded right now.</div>'}
+}
+function openApplicant(id){current=getApplicant(id);if(!current)return;$('modalAvatar').textContent=initials(current.name);$('modalName').textContent=current.name;$('modalSub').textContent=`${current.position} · ${current.hq}, ${current.state}`;$('modalPhoto').innerHTML=current.photo?`<img src="${esc(current.photo)}" alt="Applicant photo">`:initials(current.name);$('infoGrid').innerHTML=[['Full Name',current.name],['Date of Birth',current.dob],['Contact Number',current.phone?'+'+current.phone:'—'],['Email',current.email],['State',current.state],['Position',current.position],['Headquarter',current.hq],['Application Date',current.date]].map(x=>`<div class="info"><label>${x[0]}</label><strong>${esc(x[1])}</strong></div>`).join('');$('docs').innerHTML=`<div class="doc"><div class="doc-info"><b>Resume / Biodata</b><span>${current.resume?'Document available':'Not available'}</span></div>${current.resume?`<a class="btn" href="${esc(current.resume)}" target="_blank" rel="noopener">Open</a>`:`<button class="btn" disabled>Unavailable</button>`}</div><div class="doc"><div class="doc-info"><b>Address Proof</b><span>${current.address?'Document available':'Not available'}</span></div>${current.address?`<a class="btn" href="${esc(current.address)}" target="_blank" rel="noopener">Open</a>`:`<button class="btn" disabled>Unavailable</button>`}</div>`;$('modalStatus').value=current.status;
+  const statusTime=timestampDate(current.statusUpdatedAt);
+  const statusName=current.statusUpdatedByName||'';
+  const statusDesignation=current.statusUpdatedByDesignation||'';
+  $('statusAudit').innerHTML=(statusName||statusTime)?`<div class="audit-card"><div class="audit-title">Last status update</div><div class="audit-main">${esc(statusName||'Authorized user')}</div><div class="audit-meta">${esc(statusDesignation||'')}${statusDesignation&&statusTime?' · ':''}${statusTime?esc(formatAuditDate(statusTime)):'No timestamp available'}</div></div>`:`<div class="audit-card"><div class="audit-title">Last status update</div><div class="audit-meta">No status change has been recorded yet.</div></div>`;
+  $('overlay').classList.add('show');loadLastInterviewResult(current)}
+
+function localDateInput(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
+function localTimeInput(d=new Date()){return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+function roundTime(d=new Date()){const x=new Date(d);x.setMinutes(Math.ceil(x.getMinutes()/15)*15,0,0);if(x.getHours()>=23){x.setDate(x.getDate()+1);x.setHours(9,0,0,0)}return x}
+function interviewDateTime(i){return new Date(`${i.interviewDate}T${i.interviewTime}:00+05:30`)}
+function interviewStatusClass(s){return s==='Completed'?'is-completed':s==='Cancelled'||s==='Not Attended'||s==='Connection Error'||s==='Other'?'is-cancelled':'is-scheduled'}
+function roomIdFor(a){return `tarai-gold-${String(a.id).replace(/[^a-zA-Z0-9]/g,'').slice(-14)}-${Date.now().toString(36)}`}
+function meetingUrl(i){return `https://meet.jit.si/${encodeURIComponent(i.roomId)}`}
+function currentActor(){const u=window.hrFirebase?.user||{},p=window.hrFirebase?.profile||{};return{uid:u.uid||'',name:p.name||u.email||'Authorized User',designation:p.designation||p.role||'Authorized User',email:u.email||''}}
+function timestampDate(v){return v?.toDate?v.toDate():v?new Date(v):null}
+function formatAuditDate(v){const d=timestampDate(v);return d?d.toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}):'—'}
+function actorDisplay(name,designation){return `${name||'Authorized User'}${designation?' · '+designation:''}`}
+function openSchedule(id){scheduleCandidate=getApplicant(id);if(!scheduleCandidate)return;$('scheduleCandidateName').textContent=scheduleCandidate.name;$('scheduleCandidateSub').textContent=`${scheduleCandidate.position} · ${scheduleCandidate.hq}, ${scheduleCandidate.state}`;const now=roundTime(new Date(Date.now()+30*60000));$('interviewDate').min=localDateInput(new Date());$('interviewDate').value=localDateInput(now);$('interviewTime').value=localTimeInput(now);$('interviewDuration').value='30';$('interviewType').value='Video Interview';const profile=window.hrFirebase.profile||{};$('interviewerName').value=profile.name||window.hrFirebase.user?.email||'Current HR user';$('scheduleError').style.display='none';resetScheduleButton();$('scheduleOverlay').classList.add('show')}
+function resetScheduleButton(){$('saveInterview').onclick=saveInterview;$('saveInterview').textContent='Save interview';$('saveInterview').disabled=false}
+function closeSchedule(){$('scheduleOverlay').classList.remove('show');scheduleCandidate=null;resetScheduleButton()}
+function showScheduleError(m){$('scheduleError').textContent=m;$('scheduleError').style.display='block'}
+async function saveInterview(){
+  if(!scheduleCandidate||!window.hrFirebase?.db||!window.hrFirebase?.user)return;
+  const date=$('interviewDate').value,time=$('interviewTime').value,duration=Number($('interviewDuration').value),type=$('interviewType').value;
+  if(!date||!time){showScheduleError('Please select the interview date and time.');return}
+  const startTime=new Date(`${date}T${time}:00+05:30`);
+  if(startTime.getTime()<Date.now()+2*60000){showScheduleError('Please choose a future interview time.');return}
+  const actor=currentActor(),interviewerUid=actor.uid;
+  const activeForCandidate=interviews.find(i=>i.candidateId===scheduleCandidate.id&&i.status==='Scheduled');
+  if(activeForCandidate){const when=interviewDateTime(activeForCandidate);const label=when<new Date()?'already has a past scheduled interview awaiting an outcome':'already has a scheduled interview';showScheduleError(`This candidate ${label}. Please open that interview and use Reschedule or record the outcome instead of creating another interview.`);return}
+  const conflict=interviews.some(i=>i.status==='Scheduled'&&i.interviewerUid===interviewerUid&&Math.abs(interviewDateTime(i).getTime()-startTime.getTime())<Math.max(Number(i.durationMinutes||30),duration)*60000);
+  if(conflict){showScheduleError('You already have another scheduled interview overlapping this time. Please choose another time.');return}
+  const roomId=roomIdFor(scheduleCandidate);$('saveInterview').disabled=true;$('saveInterview').textContent='Saving…';
+  try{
+    const ref=await addDoc(collection(window.hrFirebase.db,'interviews'),{
+      candidateId:scheduleCandidate.id,candidateName:scheduleCandidate.name,candidateEmail:scheduleCandidate.email,candidatePhone:scheduleCandidate.phone,position:scheduleCandidate.position,state:scheduleCandidate.state,headquarter:scheduleCandidate.hq,
+      interviewDate:date,interviewTime:time,durationMinutes:duration,interviewType:type,status:'Scheduled',roomId,meetingUrl:meetingUrl({roomId}),
+      interviewerUid,interviewerName:actor.name,interviewerDesignation:actor.designation,interviewerEmail:actor.email,
+      notes:'',rating:null,outcomeNotes:'',previousApplicantStatus:scheduleCandidate.status||'Shortlisted',
+      createdAt:serverTimestamp(),createdBy:actor.uid,createdByName:actor.name,createdByDesignation:actor.designation,scheduledAt:serverTimestamp(),scheduledByUid:actor.uid,scheduledByName:actor.name,scheduledByDesignation:actor.designation
+    });
+    await updateDoc(doc(window.hrFirebase.db,'applicants',scheduleCandidate.id),{
+      status:'Interview Scheduled',interviewScheduledAt:serverTimestamp(),latestInterviewId:ref.id,
+      statusUpdatedByUid:actor.uid,statusUpdatedByName:actor.name,statusUpdatedByDesignation:actor.designation,statusUpdatedAt:serverTimestamp()
+    });
+    closeSchedule();await loadInterviews();openInterviewDetail(ref.id);
+    if(AUTO_SEND_INTERVIEW_INVITATION){toast('Interview scheduled. Sending invitation…');const mailResult=await sendInterviewEmailAutomatically(ref.id);if(mailResult.ok){toast('Interview scheduled and invitation email sent successfully.')}else{toast('Interview scheduled, but invitation was not sent: '+mailResult.reason);openInviteChooser(ref.id)}}else{toast('Interview scheduled successfully. Invitation is ready to send.');openInviteChooser(ref.id)}
+  }catch(e){console.error('Interview schedule failed:',e);showScheduleError((e.code||'unknown')+' — '+(e.message||'Could not save the interview.'))}
+  finally{$('saveInterview').disabled=false;$('saveInterview').textContent='Save interview'}
+}
+function filteredInterviews(){const q=($('interviewSearch').value||'').toLowerCase().trim(),f=$('interviewStatusFilter').value;return interviews.filter(i=>(!q||[i.candidateName,i.candidateEmail,i.position,i.headquarter,i.interviewerName].join(' ').toLowerCase().includes(q))&&(!f||i.status===f)).sort((a,b)=>interviewDateTime(b)-interviewDateTime(a))}
+function renderInterviewSummary(){const now=new Date(),today=localDateInput(now);const scheduled=interviews.filter(i=>i.status==='Scheduled'),todayCount=scheduled.filter(i=>i.interviewDate===today).length,completed=interviews.filter(i=>i.status==='Completed').length,cancelled=interviews.filter(i=>i.status==='Cancelled').length;$('interviewSummary').innerHTML=`<div class="interview-stat"><span>Upcoming</span><strong>${scheduled.filter(i=>interviewDateTime(i)>=now).length}</strong></div><div class="interview-stat"><span>Today</span><strong>${todayCount}</strong></div><div class="interview-stat"><span>Completed</span><strong>${completed}</strong></div><div class="interview-stat"><span>Cancelled</span><strong>${cancelled}</strong></div>`}
+function renderInterviews(){
+  renderInterviewSummary();
+  renderInterviewCalendar();
+  const list=filteredInterviews();
+  $('interviewRows').innerHTML=list.length?list.map(i=>{
+    const past=i.status==='Scheduled'&&interviewDateTime(i)<new Date();
+    const actions=i.status==='Scheduled'
+      ? `<button type="button" class="btn interview-action" data-interview-action="join" data-interview-id="${esc(i.id)}">Join</button><button type="button" class="btn interview-action" data-interview-action="manage" data-interview-id="${esc(i.id)}">Manage</button>`
+      : `<button type="button" class="btn interview-action" data-interview-action="manage" data-interview-id="${esc(i.id)}">View</button>`;
+    return `<tr>
+      <td data-label="Candidate"><div class="interview-candidate"><div class="photo">${initials(i.candidateName)}</div><div class="cand"><b>${esc(i.candidateName)}</b><span>${esc(i.candidateEmail||'No email')}</span></div></div></td>
+      <td data-label="Date &amp; time"><div><div class="interview-date">${esc(formatDate(i.interviewDate))}</div><div class="interview-time">${esc(i.interviewTime||'—')} · ${esc(i.durationMinutes||30)} min${past?' · Awaiting outcome':''}</div></div></td>
+      <td data-label="Position"><div><div>${esc(i.position||'—')}</div><div class="interview-location">${esc(i.headquarter||'—')}</div></div></td>
+      <td data-label="Interviewer">${esc(i.interviewerName||'—')}</td>
+      <td data-label="Type">${esc(i.interviewType||'Video Interview')}</td>
+      <td data-label="Status"><span class="interview-status ${interviewStatusClass(i.status)}">${esc(i.status||'Scheduled')}</span></td>
+      <td data-label="Actions"><div class="interview-row-actions">${actions}</div></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="7" class="interview-empty-cell"><div class="interview-empty"><strong>No interviews found</strong>Use “Schedule interview” from an applicant profile to create one.</div></td></tr>`;
+}
+let calendarMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1);
+function calendarDateKey(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function calendarEventClass(status){return status==='Completed'?'completed':status==='Cancelled'?'cancelled':status==='Not Attended'?'not-attended':status==='Connection Error'?'connection-error':status==='Other'?'other':''}
+function renderInterviewCalendar(){
+  const root=$('interviewCalendar');if(!root)return;
+  const y=calendarMonth.getFullYear(),m=calendarMonth.getMonth();
+  $('calendarMonthTitle').textContent=calendarMonth.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  const first=new Date(y,m,1),days=new Date(y,m+1,0).getDate(),start=(first.getDay()+6)%7;
+  const prevDays=new Date(y,m,0).getDate();const cells=[];
+  const todayKey=calendarDateKey(new Date());
+  ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>cells.push(`<div class="calendar-weekday">${d}</div>`));
+  for(let idx=0;idx<42;idx++){
+    const dayNum=idx-start+1;let d,muted=false;
+    if(dayNum<1){d=new Date(y,m-1,prevDays+dayNum);muted=true}else if(dayNum>days){d=new Date(y,m,dayNum-days);muted=true}else d=new Date(y,m,dayNum);
+    const key=calendarDateKey(d);const dayInterviews=muted?[]:interviews.filter(i=>i.interviewDate===key).sort((a,b)=>String(a.interviewTime||'').localeCompare(String(b.interviewTime||'')));
+    const visible=dayInterviews.slice(0,3);const more=dayInterviews.length-3;
+    cells.push(`<div class="calendar-day${muted?' muted':''}${key===todayKey?' today':''}"><div class="calendar-day-number"><b>${d.getDate()}</b>${dayInterviews.length?`<span>${dayInterviews.length}</span>`:''}</div><div class="calendar-events">${visible.map(i=>`<button type="button" class="calendar-event ${calendarEventClass(i.status)}" data-calendar-interview-id="${esc(i.id)}"><strong>${esc(i.interviewTime||'—')} · ${esc(i.candidateName||'Candidate')}</strong><span>${esc(i.position||'Interview')}</span></button>`).join('')}${more>0?`<div class="calendar-more">+${more} more</div>`:''}</div></div>`);
+  }
+  root.innerHTML=cells.join('');
+  root.querySelectorAll('[data-calendar-interview-id]').forEach(btn=>btn.addEventListener('click',()=>openInterviewDetail(btn.dataset.calendarInterviewId)));
+}
+async function loadInterviews(){if(!window.hrFirebase?.db||!window.hrFirebase?.user)return;$('interviewRows').innerHTML='<tr><td colspan="7" class="interview-empty-cell"><div class="interview-empty">Loading interviews…</div></td></tr>';try{const snap=await getDocs(collection(window.hrFirebase.db,'interviews'));interviews=snap.docs.map(d=>({id:d.id,...d.data()}));renderInterviews();renderDashboardFocus();renderReports();const actor=currentActor();const myUid=actor.uid;const overdue=interviews.filter(i=>i.status==='Scheduled'&&interviewDateTime(i)<new Date()&&!i.outcomeRecordedAt&&(i.createdBy===myUid||i.scheduledByUid===myUid||i.interviewerUid===myUid)).sort((a,b)=>interviewDateTime(a)-interviewDateTime(b));const anyModalOpen=()=>['interviewDetailOverlay','outcomeOverlay','scheduleOverlay','inviteOverlay'].some(x=>$(x)?.classList.contains('show'));if(document.getElementById('interviewWorkspace')?.classList.contains('is-active')&&overdue[0]&&!anyModalOpen())setTimeout(()=>{if(!anyModalOpen())openInterviewDetail(overdue[0].id)},250)}catch(e){console.error('Interview read failed:',e);$('interviewRows').innerHTML=`<tr><td colspan="7" class="interview-empty-cell"><div class="interview-empty"><strong>Could not load interviews</strong>${esc((e.code||'unknown')+' — '+(e.message||''))}</div></td></tr>`}}
+async function updateInterview(id,patch){if(!window.hrFirebase?.db)return;try{const actor=currentActor();await updateDoc(doc(window.hrFirebase.db,'interviews',id),{...patch,updatedAt:serverTimestamp(),updatedBy:actor.uid,updatedByName:actor.name,updatedByDesignation:actor.designation});await loadInterviews();return true}catch(e){console.error(e);toast('Could not update interview.');return false}}
+function openOutcomeModal(id,autoPrompt=false,initialStatus=''){const i=interviews.find(x=>x.id===id);if(!i)return;if(i.outcomeRecordedAt){toast('This interview is already closed. Only Delete record is available.');return}outcomeInterviewId=id;$('outcomeCandidateName').textContent=i.candidateName||'Candidate';$('outcomeCandidateSub').textContent=`${i.position||'—'} · ${formatDate(i.interviewDate)} · ${i.interviewTime||'—'} IST`;$('outcomeStatus').value=initialStatus||'';$('outcomeRating').value=i.rating??'';$('outcomeNotes').value=i.outcomeNotes||i.notes||'';$('outcomeError').style.display='none';updateOutcomeRatingVisibility();$('outcomeTitle').textContent=autoPrompt?'Interview time has passed':'Record interview outcome';$('outcomeSubtitle').textContent=autoPrompt?'Please record what actually happened. The system will not mark it completed automatically.':'Choose the actual interview outcome.';$('outcomeOverlay').classList.add('show');$('outcomeOverlay').setAttribute('aria-hidden','false')}
+function closeOutcomeModal(){$('outcomeOverlay').classList.remove('show');$('outcomeOverlay').setAttribute('aria-hidden','true');outcomeInterviewId=null}
+function updateOutcomeRatingVisibility(){const completed=$('outcomeStatus').value==='Completed';$('ratingWrap').classList.toggle('show',completed);if(!completed)$('outcomeRating').value='';$('outcomeError').style.display='none'}
+function showOutcomeError(m){$('outcomeError').textContent=m;$('outcomeError').style.display='block'}
+const OUTCOME_APPLICANT_STATUS={'Completed':'Interview Completed','Not Attended':'Interview Not Attended','Connection Error':'Interview Connection Error','Cancelled':'Interview Cancelled','Other':'Interview Other'};
+async function saveInterviewOutcome(){
+  const id=outcomeInterviewId,i=interviews.find(x=>x.id===id);
+  if(!i)return;
+  const status=$('outcomeStatus').value;
+  const raw=$('outcomeRating').value.trim();
+  const notes=$('outcomeNotes').value.trim();
+  if(!OUTCOME_APPLICANT_STATUS[status]){showOutcomeError('Please select what happened in the interview.');return}
+  if(status==='Completed'){
+    if(raw===''){showOutcomeError('Please enter an interview rating from 0 to 10.');return}
+    const r=Number(raw);
+    if(!Number.isInteger(r)||r<0||r>10){showOutcomeError('Rating must be a whole number from 0 to 10.');return}
+  }
+  const rating=status==='Completed'?Number(raw):null;
+  const saveBtn=$('saveOutcome');
+  saveBtn.disabled=true;$('outcomeError').style.display='none';
+  try{
+    const db=window.hrFirebase.db,actor=currentActor(),uid=actor.uid;
+    const interviewRef=doc(db,'interviews',id);
+    // the interview stores the applicant's document id in candidateId (set when the interview is scheduled)
+    const applicantRef=i.candidateId?doc(db,'applicants',i.candidateId):null;
+    const applicantFound=applicantRef?(await getDoc(applicantRef)).exists():false;
+    const batch=writeBatch(db);
+    batch.update(interviewRef,{status,rating,outcomeNotes:notes,outcomeRecordedAt:serverTimestamp(),outcomeRecordedBy:uid,outcomeRecordedByName:actor.name,outcomeRecordedByDesignation:actor.designation,updatedAt:serverTimestamp(),updatedBy:uid,updatedByName:actor.name,updatedByDesignation:actor.designation});
+    if(applicantFound)batch.update(applicantRef,{status:OUTCOME_APPLICANT_STATUS[status],statusUpdatedByUid:uid,statusUpdatedByName:actor.name,statusUpdatedByDesignation:actor.designation,statusUpdatedAt:serverTimestamp(),lastInterviewResult:status,lastInterviewRating:rating,lastInterviewOutcomeNotes:notes,lastInterviewDate:i.interviewDate||'',lastInterviewTime:i.interviewTime||'',lastInterviewDuration:Number(i.durationMinutes||30),lastInterviewType:i.interviewType||'Video Interview',lastInterviewInterviewer:i.interviewerName||'',lastInterviewId:id});
+    await batch.commit(); // both writes succeed together or neither is saved
+    Object.assign(i,{status,rating,outcomeNotes:notes,outcomeRecordedAt:new Date()});
+    await loadInterviews();
+    closeOutcomeModal();
+    toast(applicantFound?`Interview outcome saved: ${status}.`:`Outcome saved, but the linked applicant record was not found, so the applicant status was not changed.`);
+    openInterviewDetail(id);
+  }catch(e){
+    console.error('Interview outcome save failed:',e);
+    showOutcomeError('Unable to save interview outcome. Please try again.');
+  }finally{saveBtn.disabled=false}
+}
+async function markInterviewStatus(id,status){const i=interviews.find(x=>x.id===id);if(!i)return;if(status==='Completed'||status==='Not Attended'||status==='Connection Error'||status==='Other'||status==='Cancelled')openOutcomeModal(id,false,status)}
+function openReschedule(id){
+  const i=interviews.find(x=>x.id===id);if(!i)return;
+  const d=interviewDateTime(i),now=new Date();
+  scheduleCandidate=getApplicant(i.candidateId)||{id:i.candidateId,name:i.candidateName,email:i.candidateEmail,phone:i.candidatePhone,position:i.position,state:i.state,hq:i.headquarter};
+  $('scheduleCandidateName').textContent=i.candidateName;
+  $('scheduleCandidateSub').textContent=`${i.position} · ${i.headquarter}`;
+  $('interviewDate').min=localDateInput(now);
+  // If the existing interview time has already passed (or is effectively now),
+  // prefill a sensible future time instead of opening the form with an invalid time.
+  const suggested=(d.getTime()>=now.getTime()+2*60000)?d:roundTime(new Date(now.getTime()+30*60000));
+  $('interviewDate').value=localDateInput(suggested);
+  $('interviewTime').value=localTimeInput(suggested);
+  $('interviewDuration').value=String(i.durationMinutes||30);
+  $('interviewType').value=i.interviewType||'Video Interview';
+  $('interviewerName').value=i.interviewerName||window.hrFirebase.profile?.name||'';
+  $('scheduleError').style.display='none';
+  $('scheduleOverlay').classList.add('show');
+  $('saveInterview').textContent='Save changes';
+  $('saveInterview').disabled=false;
+  $('saveInterview').onclick=async()=>{
+    const date=$('interviewDate').value,time=$('interviewTime').value;
+    if(!date||!time){showScheduleError('Please select the interview date and time.');return}
+    const start=new Date(`${date}T${time}:00+05:30`);
+    if(Number.isNaN(start.getTime())||start.getTime()<Date.now()+2*60000){showScheduleError('Please choose a future interview time.');return}
+    const roomId=i.roomId||roomIdFor(scheduleCandidate),actor=currentActor();
+    const ok=await updateInterview(i.id,{interviewDate:date,interviewTime:time,durationMinutes:Number($('interviewDuration').value),interviewType:$('interviewType').value,status:'Scheduled',roomId,meetingUrl:meetingUrl({roomId}),rescheduledAt:serverTimestamp(),rescheduledByUid:actor.uid,rescheduledByName:actor.name,rescheduledByDesignation:actor.designation,updatedByName:actor.name,updatedByDesignation:actor.designation});
+    if(ok){closeSchedule();toast('Interview rescheduled successfully.');openInterviewDetail(i.id)}
+  }
+}
+function fmtPhone(p){const d=String(p||'').replace(/\D/g,'');return d?('+'+(d.length>10&&d.startsWith('91')?d:'91 '+d)):'—'}
+function openInterviewDetail(id){
+  const i=interviews.find(x=>x.id===id);
+  if(!i){toast('Interview record could not be found. Refreshing…');loadInterviews();return}
+  $('overlay').classList.remove('show');$('mailOverlay').classList.remove('show');$('scheduleOverlay').classList.remove('show');
+  $('detailTitle').textContent=i.candidateName||'Interview';
+  $('detailSub').textContent=`${i.position||'—'} · ${i.headquarter||'—'}`;
+  const link=i.meetingUrl||meetingUrl(i);
+  const scheduled=i.status==='Scheduled';
+  const locked=!scheduled && !!i.outcomeRecordedAt;
+  const video=i.interviewType==='Video Interview';
+  const actor=currentActor();
+  const isOwner=i.createdBy===actor.uid;
+  const card=(l,v)=>`<div class="detail-card"><label>${l}</label><strong>${esc(v)}</strong></div>`;
+  const btn=(a,label,c='',disabled=false)=>`<button type="button" class="btn ${c}${disabled?' locked-action':''}" data-detail-action="${a}" data-interview-id="${esc(i.id)}" ${disabled?'disabled':''}>${label}</button>`;
+  const deleteBtn=isOwner?btn('delete','Delete record','danger'):'';
+  const lockText=locked?`<div class="detail-locked-note"><strong>Interview closed</strong><br>The interview outcome has been recorded. This record is locked and cannot be changed. Only the user who scheduled this interview can delete the record.</div>`:'';
+  const noteDisabled=locked?' disabled':'';
+  const actionButtons=locked
+      ? btn('join','Join interview','primary',true)+btn('invite','Invite','',true)+btn('share','Share link','',true)+btn('copy','Copy link','',true)+btn('reschedule','Reschedule','',true)+btn('outcome','Record outcome','',true)+btn('notes','Save notes','primary',true)+deleteBtn
+      : (scheduled&&video?btn('join','Join interview','primary'):'')
+        +(scheduled?btn('invite','Invite'):'')
+        +(scheduled&&video?btn('share','Share link')+btn('copy','Copy link'):'')
+        +(scheduled?btn('reschedule','Reschedule'):'')+(scheduled?btn('outcome','Record outcome'):'')
+        +btn('notes','Save notes','primary')+deleteBtn;
+  const scheduledByName=i.scheduledByName||i.createdByName||i.interviewerName||'—';
+  const scheduledByDesignation=i.scheduledByDesignation||i.createdByDesignation||i.interviewerDesignation||'';
+  const rescheduledAt=timestampDate(i.rescheduledAt),outcomeAt=timestampDate(i.outcomeRecordedAt),notesAt=timestampDate(i.notesUpdatedAt);
+  const auditHtml=`<div class="audit-grid">${card('Scheduled by',actorDisplay(scheduledByName,scheduledByDesignation))}${card('Scheduled at',formatAuditDate(i.scheduledAt||i.createdAt))}${rescheduledAt?card('Last rescheduled by',actorDisplay(i.rescheduledByName||i.updatedByName,i.rescheduledByDesignation||i.updatedByDesignation)):''}${rescheduledAt?card('Rescheduled at',formatAuditDate(i.rescheduledAt)):''}${outcomeAt?card('Outcome recorded by',actorDisplay(i.outcomeRecordedByName||i.updatedByName,i.outcomeRecordedByDesignation||i.updatedByDesignation)):''}${outcomeAt?card('Outcome recorded at',formatAuditDate(i.outcomeRecordedAt)):''}${notesAt?card('Notes updated by',actorDisplay(i.notesUpdatedByName||i.updatedByName,i.notesUpdatedByDesignation||i.updatedByDesignation)):''}${notesAt?card('Notes updated at',formatAuditDate(i.notesUpdatedAt)):''}</div>`;
+  $('detailBody').innerHTML=`<div class="detail-grid">${[
+      ['Candidate',i.candidateName||'—'],['Email',i.candidateEmail||'—'],['Phone',fmtPhone(i.candidatePhone)],['Position',i.position||'—'],
+      ['State',i.state||'—'],['Headquarter',i.headquarter||'—'],['Date',formatDate(i.interviewDate)],['Time',`${i.interviewTime||'—'} · ${i.durationMinutes||30} minutes`],
+      ['Interviewer',actorDisplay(i.interviewerName||'—',i.interviewerDesignation||'')],['Interview type',i.interviewType||'Video Interview'],['Status',i.status||'Scheduled'],...(i.status==='Completed'?[['Rating',`${i.rating??'—'} / 10`]]:[]),...(i.outcomeNotes?[['Outcome notes',i.outcomeNotes]]:[])
+    ].map(x=>card(x[0],x[1])).join('')}</div>${auditHtml}`
+    +(video?`<div class="detail-link"><b>Candidate meeting link</b><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(link)}</a></div>`:'')
+    +`<div class="interview-note"><label class="section-title" style="display:block;margin-top:18px" for="interviewNotes">Interview notes</label><textarea id="interviewNotes" placeholder="Add interview notes for the HR team..."${noteDisabled}>${esc(i.notes||'')}</textarea></div>`
+    +lockText
+    +`<div class="detail-actions">${actionButtons}</div>`;
+  $('interviewDetailOverlay').classList.add('show');
+}
+async function saveInterviewNotes(id){const i=interviews.find(x=>x.id===id);if(!i)return;if(i.outcomeRecordedAt||i.status!=='Scheduled'){toast('This interview is closed and can only be deleted.');return}const notes=$('interviewNotes')?.value||'';const actor=currentActor();if(await updateInterview(id,{notes,notesUpdatedAt:serverTimestamp(),notesUpdatedByUid:actor.uid,notesUpdatedByName:actor.name,notesUpdatedByDesignation:actor.designation})){toast('Interview notes saved.');openInterviewDetail(id)}}
+function copyMeetingLink(id){const i=interviews.find(x=>x.id===id);if(!i)return;navigator.clipboard?.writeText(i.meetingUrl||meetingUrl(i)).then(()=>toast('Meeting link copied.')).catch(()=>toast(i.meetingUrl||meetingUrl(i)))}
+function joinInterview(id){const i=interviews.find(x=>x.id===id);if(!i)return;window.open(i.meetingUrl||meetingUrl(i),'_blank','noopener,noreferrer')}
+function getInterviewInviteData(id){
+  const i=interviews.find(x=>x.id===id);
+  if(!i)return null;
+  const link=i.meetingUrl||meetingUrl(i);
+  const subject=`Tarai Gold — Interview Invitation — ${i.position||'Interview'}`;
+  const body=`Dear ${i.candidateName||'Candidate'},\n\nThank you for your application to Tarai Gold. We are pleased to invite you for an interview.\n\nInterview Details\nPosition: ${i.position||'—'}\nHeadquarter: ${i.headquarter||'—'}\nDate: ${formatDate(i.interviewDate)}\nTime: ${i.interviewTime||'—'} IST\nDuration: ${i.durationMinutes||30} minutes\nInterview Type: ${i.interviewType||'Video Interview'}\nInterviewer: ${i.interviewerName||'HR Team'}\n\nJoin Interview\n${link}\n\nPlease join 5 minutes before the scheduled time and make sure your camera, microphone and internet connection are working properly.\n\nIf you face any difficulty joining the interview, please contact the HR team.\n\nRegards,\nHR Team\nTarai Gold`;
+  const whatsapp=`Hello ${i.candidateName||'Candidate'},\n\nGreetings from Tarai Gold.\n\nYour interview has been scheduled with us. Please find the details below:\n\nPosition: ${i.position||'—'}\nHeadquarter: ${i.headquarter||'—'}\nDate: ${formatDate(i.interviewDate)}\nTime: ${i.interviewTime||'—'} IST\nDuration: ${i.durationMinutes||30} minutes\nInterview Type: ${i.interviewType||'Video Interview'}\nInterviewer: ${i.interviewerName||'HR Team'}\n\nJoin Interview:\n${link}\n\nPlease join 5 minutes before the scheduled time and ensure that your camera, microphone and internet connection are working properly.\n\nRegards,\nHR Team\nTarai Gold`;
+  return {i,link,subject,body,whatsapp};
+}
+async function sendInterviewEmailAutomatically(id){
+  const data=getInterviewInviteData(id);
+  if(!data||!data.i.candidateEmail) return {ok:false,reason:"Candidate email is not available."};
+  if(INTERVIEW_EMAIL_TEMPLATE_ID === "TEMPLATE_INTERVIEW_INVITATION") return {ok:false,reason:"Interview EmailJS template is not configured yet."};
+  if(!window.emailjs) return {ok:false,reason:"EmailJS could not be loaded."};
+  try {
+    await window.emailjs.send(INTERVIEW_EMAIL_SERVICE_ID, INTERVIEW_EMAIL_TEMPLATE_ID, {
+      to_email:data.i.candidateEmail,
+      to_name:data.i.candidateName||"Candidate",
+      subject:data.subject,
+      message:data.body,
+      candidate_name:data.i.candidateName||"Candidate",
+      position:data.i.position||"—",
+      headquarter:data.i.headquarter||"—",
+      interview_date:formatDate(data.i.interviewDate),
+      interview_time:data.i.interviewTime||"—",
+      duration:String(data.i.durationMinutes||30),
+      interview_type:data.i.interviewType||"Video Interview",
+      interviewer:data.i.interviewerName||"HR Team",
+      meeting_url:data.link
+    });
+    return {ok:true};
+  } catch(e) {
+    console.error("Automatic interview email failed:",e);
+    return {ok:false,reason:e.text||e.message||"EmailJS could not send the invitation."};
+  }
+}
+
+function openInviteChooser(id){
+  const data=getInterviewInviteData(id);
+  if(!data){toast('Interview record could not be found.');return}
+  inviteInterviewId=id;
+  $('inviteCandidateName').textContent=data.i.candidateName||'Candidate';
+  $('inviteCandidateSub').textContent=`${data.i.position||'—'} · ${formatDate(data.i.interviewDate)} · ${data.i.interviewTime||'—'} IST`;
+  $('inviteMailBtn').disabled=!data.i.candidateEmail;
+  $('inviteWhatsAppBtn').disabled=!String(data.i.candidatePhone||'').replace(/\D/g,'');
+  $('inviteOverlay').classList.add('show');
+}
+function closeInviteChooser(){inviteInterviewId=null;$('inviteOverlay').classList.remove('show')}
+function sendMailInvitation(id){
+  const data=getInterviewInviteData(id);
+  if(!data||!data.i.candidateEmail){toast('Candidate email is not available.');return}
+  const gmail=`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(data.i.candidateEmail)}&su=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(data.body)}`;
+  window.open(gmail,'_blank','noopener,noreferrer');
+  closeInviteChooser();
+}
+function sendWhatsAppInvitation(id){
+  const data=getInterviewInviteData(id);
+  if(!data)return;
+  const digits=String(data.i.candidatePhone||'').replace(/\D/g,'');
+  const number=digits.length===10?`91${digits}`:digits.startsWith('91')?digits:digits;
+  if(number.length<12){toast('Candidate WhatsApp number is not available.');return}
+  const url=`https://wa.me/${number}?text=${encodeURIComponent(data.whatsapp)}`;
+  window.open(url,'_blank','noopener,noreferrer');
+  closeInviteChooser();
+}
+function sendInterviewInvite(id){openInviteChooser(id)}
+function shareInterviewLink(id){const i=interviews.find(x=>x.id===id);if(!i)return;const link=i.meetingUrl||meetingUrl(i);if(navigator.share){navigator.share({title:`Tarai Gold Interview — ${i.candidateName}`,text:`Interview link for ${i.candidateName}:`,url:link}).catch(()=>{})}else if(navigator.clipboard){navigator.clipboard.writeText(link).then(()=>toast('Interview link copied. Share it wherever you need.')).catch(()=>toast(link))}else{toast(link)}}
+async function deleteInterview(id){
+  const i=interviews.find(x=>x.id===id);
+  if(!i)return;
+
+  const closed=!!i.outcomeRecordedAt;
+  const message=closed
+    ? `Delete the closed interview record for ${i.candidateName}?\n\nThis interview already has a recorded outcome. Deleting it will permanently remove this interview history and cannot be undone.\n\nThe applicant record and documents will NOT be deleted.`
+    : `Delete the interview record for ${i.candidateName}?\n\nOnly this interview record will be deleted. The applicant, documents and application data will remain.\n\nThis action cannot be undone.`;
+
+  if(!confirm(message))return;
+
+  try{
+    const db=window.hrFirebase?.db;
+    const actor=currentActor();
+    const uid=actor.uid;
+    if(!db||!uid){toast('HR Firebase session is not available.');return}
+    if(i.createdBy!==uid){toast('Only the user who scheduled this interview can delete it.');return}
+
+    let remaining=[];
+    if(i.candidateId){
+      const snap=await getDocs(
+        query(collection(db,'interviews'),where('candidateId','==',i.candidateId))
+      );
+      remaining=snap.docs
+        .filter(d=>d.id!==id)
+        .map(d=>({id:d.id,...d.data()}));
+    }
+
+    let applicantPatch=null;
+    if(i.candidateId){
+      const sorted=[...remaining].sort((a,b)=>{
+        const av=a.outcomeRecordedAt?.toDate ? a.outcomeRecordedAt.toDate() : (a.createdAt?.toDate ? a.createdAt.toDate() : interviewDateTime(a));
+        const bv=b.outcomeRecordedAt?.toDate ? b.outcomeRecordedAt.toDate() : (b.createdAt?.toDate ? b.createdAt.toDate() : interviewDateTime(b));
+        return bv-av;
+      });
+
+      // A remaining scheduled interview is always the current active interview.
+      const active=sorted.find(x=>x.status==='Scheduled');
+      const latestOutcome=sorted.find(x=>!!x.outcomeRecordedAt || !!OUTCOME_APPLICANT_STATUS[x.status]);
+
+      if(active){
+        applicantPatch={status:'Interview Scheduled',latestInterviewId:active.id};
+        if(latestOutcome){
+          applicantPatch.lastInterviewResult=latestOutcome.status;
+          applicantPatch.lastInterviewRating=latestOutcome.rating??null;
+          applicantPatch.lastInterviewOutcomeNotes=latestOutcome.outcomeNotes||'';
+          applicantPatch.lastInterviewDate=latestOutcome.interviewDate||'';
+          applicantPatch.lastInterviewTime=latestOutcome.interviewTime||'';
+          applicantPatch.lastInterviewDuration=Number(latestOutcome.durationMinutes||30);
+          applicantPatch.lastInterviewType=latestOutcome.interviewType||'Video Interview';
+          applicantPatch.lastInterviewInterviewer=latestOutcome.interviewerName||'';
+          applicantPatch.lastInterviewId=latestOutcome.id;
+        }
+      }else if(latestOutcome){
+        applicantPatch={
+          status:OUTCOME_APPLICANT_STATUS[latestOutcome.status],
+          latestInterviewId:latestOutcome.id,
+          lastInterviewResult:latestOutcome.status,
+          lastInterviewRating:latestOutcome.rating??null,
+          lastInterviewOutcomeNotes:latestOutcome.outcomeNotes||'',
+          lastInterviewDate:latestOutcome.interviewDate||'',
+          lastInterviewTime:latestOutcome.interviewTime||'',
+          lastInterviewDuration:Number(latestOutcome.durationMinutes||30),
+          lastInterviewType:latestOutcome.interviewType||'Video Interview',
+          lastInterviewInterviewer:latestOutcome.interviewerName||'',
+          lastInterviewId:latestOutcome.id
+        };
+      }else{
+        applicantPatch={
+          status:i.previousApplicantStatus || 'Shortlisted',
+          latestInterviewId:null,
+          lastInterviewResult:'',
+          lastInterviewRating:null,
+          lastInterviewOutcomeNotes:'',
+          lastInterviewDate:'',
+          lastInterviewTime:'',
+          lastInterviewDuration:null,
+          lastInterviewType:'',
+          lastInterviewInterviewer:'',
+          lastInterviewId:null
+        };
+      }
+    }
+
+    if(i.candidateId && applicantPatch){
+      applicantPatch.statusUpdatedByUid=actor.uid;
+      applicantPatch.statusUpdatedByName=actor.name;
+      applicantPatch.statusUpdatedByDesignation=actor.designation;
+      applicantPatch.statusUpdatedAt=serverTimestamp();
+    }
+
+    const batch=writeBatch(db);
+
+    // DELETE RULE: this removes ONLY the selected interview document.
+    // Applicant documents, photos, resumes and address proofs are never deleted.
+    batch.delete(doc(db,'interviews',id));
+
+    if(i.candidateId && applicantPatch){
+      const applicantRef=doc(db,'applicants',i.candidateId);
+      const applicantSnap=await getDoc(applicantRef);
+
+      // If the applicant was removed independently, don't make the whole
+      // interview deletion fail. The interview can still be deleted.
+      if(applicantSnap.exists()){
+        batch.update(applicantRef,{
+          ...applicantPatch,
+          updatedAt:serverTimestamp(),
+          updatedBy:uid
+        });
+      }
+    }
+
+    await batch.commit();
+
+    $('interviewDetailOverlay').classList.remove('show');
+    toast('Interview record deleted. Applicant data was kept safe.');
+    await loadInterviews();
+  }catch(e){
+    console.error('Interview delete failed:',e);
+    toast(`Could not delete interview: ${e.code||'unknown'}`);
+  }
+}
+window.markInterviewStatus=markInterviewStatus;window.openOutcomeModal=openOutcomeModal;window.closeOutcomeModal=closeOutcomeModal;window.openInterviewDetail=openInterviewDetail;window.openReschedule=openReschedule;window.joinInterview=joinInterview;window.sendInterviewInvite=sendInterviewInvite;window.openInviteChooser=openInviteChooser;window.copyMeetingLink=copyMeetingLink;window.shareInterviewLink=shareInterviewLink;window.deleteInterview=deleteInterview;window.saveInterviewNotes=saveInterviewNotes;
+$('interviewRows').addEventListener('click',e=>{
+  const b=e.target.closest('[data-interview-action]');
+  if(!b)return;
+  const id=b.dataset.interviewId,action=b.dataset.interviewAction;
+  if(!id)return;
+  if(action==='join')joinInterview(id);
+  else if(action==='manage')openInterviewDetail(id);
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-detail-action]');if(!b)return;const id=b.dataset.interviewId;const action=b.dataset.detailAction;if(!id)return;if(action!=='delete'&&b.disabled)return;if(action==='join')joinInterview(id);else if(action==='invite')openInviteChooser(id);else if(action==='share')shareInterviewLink(id);else if(action==='copy')copyMeetingLink(id);else if(action==='reschedule')openReschedule(id);else if(action==='outcome')openOutcomeModal(id,false);else if(action==='cancel')openOutcomeModal(id,false,'Cancelled');else if(action==='delete')deleteInterview(id);else if(action==='notes')saveInterviewNotes(id);else if(action==='complete')openOutcomeModal(id,false)});
+$('closeModal').onclick=()=>$('overlay').classList.remove('show');document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('passwordOverlay')?.classList.contains('show'))closePasswordModal()});$('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))$('overlay').classList.remove('show')});$('saveStatus').onclick=async()=>{if(!current||!window.hrFirebase?.db)return;const actor=currentActor();try{await updateDoc(doc(window.hrFirebase.db,'applicants',current.id),{status:$('modalStatus').value,statusUpdatedByUid:actor.uid,statusUpdatedByName:actor.name,statusUpdatedByDesignation:actor.designation,statusUpdatedAt:serverTimestamp()});current.status=$('modalStatus').value;current.statusUpdatedByUid=actor.uid;current.statusUpdatedByName=actor.name;current.statusUpdatedByDesignation=actor.designation;current.statusUpdatedAt=new Date();$('statusAudit').innerHTML=`<div class="audit-card"><div class="audit-title">Last status update</div><div class="audit-main">${esc(actor.name)}</div><div class="audit-meta">${esc(actor.designation)} · ${esc(formatAuditDate(current.statusUpdatedAt))}</div></div>`;$('overlay').classList.remove('show');toast('Application status updated')}catch(e){console.error('Status update failed:',e);toast('Could not update status.')}};
+$('callBtn').onclick=()=>current&&callApp(current.id);$('waBtn').onclick=()=>current&&waApp(current.id);$('mailBtn').onclick=()=>current&&mailApp(current.id);$('interviewBtn').onclick=()=>current&&openSchedule(current.id);$('deleteApplicantBtn').onclick=()=>current&&deleteApplication(current.id);
+$('closeMailModal').onclick=()=>$('mailOverlay').classList.remove('show');$('cancelMailModal').onclick=()=>$('mailOverlay').classList.remove('show');$('mailOverlay').addEventListener('click',e=>{if(e.target===$('mailOverlay'))$('mailOverlay').classList.remove('show')});document.querySelectorAll('.mail-purpose').forEach(b=>b.addEventListener('click',()=>openApplicantMail(b.dataset.purpose)));
+$('closeOutcome').onclick=closeOutcomeModal;$('cancelOutcome').onclick=closeOutcomeModal;$('outcomeStatus').addEventListener('change',updateOutcomeRatingVisibility);$('saveOutcome').onclick=saveInterviewOutcome;$('outcomeOverlay').addEventListener('click',e=>{if(e.target===$('outcomeOverlay'))closeOutcomeModal();});$('closeSchedule').onclick=closeSchedule;$('cancelSchedule').onclick=closeSchedule;$('closeInvite').onclick=closeInviteChooser;$('cancelInvite').onclick=closeInviteChooser;$('inviteMailBtn').onclick=()=>inviteInterviewId&&sendMailInvitation(inviteInterviewId);$('inviteWhatsAppBtn').onclick=()=>inviteInterviewId&&sendWhatsAppInvitation(inviteInterviewId);$('inviteOverlay').addEventListener('click',e=>{if(e.target===$('inviteOverlay'))closeInviteChooser()});$('saveInterview').onclick=saveInterview;$('scheduleOverlay').addEventListener('click',e=>{if(e.target===$('scheduleOverlay'))closeSchedule()});$('closeInterviewDetail').onclick=()=>$('interviewDetailOverlay').classList.remove('show');$('interviewDetailOverlay').addEventListener('click',e=>{if(e.target===$('interviewDetailOverlay'))$('interviewDetailOverlay').classList.remove('show')});$('interviewStatusFilter').addEventListener('change',renderInterviews);$('interviewSearch').addEventListener('input',renderInterviews);$('refreshInterviewsBtn').onclick=loadInterviews;
+$('search').addEventListener('input',render);$('state').addEventListener('change',()=>{refreshDependentFiltersAfterState();render()});$('position').addEventListener('change',()=>{refreshDependentFiltersAfterPosition();render()});$('hq').addEventListener('change',render);$('status').addEventListener('change',render);$('dateFrom').addEventListener('change',render);$('dateTo').addEventListener('change',render);$('clearBtn').onclick=()=>{['search','state','position','hq','status','dateFrom','dateTo'].forEach(id=>$(id).value='');populateFilterOptions(false);render()};
+function exportApplications(list,filename){const header=['Name','DOB','Phone','Email','State','Position','Headquarter','Status','Applied Date'];const csv=[header,...list.map(a=>[a.name,a.dob,a.phone,a.email,a.state,a.position,a.hq,a.status,a.date])].map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=filename;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);toast(`Exported ${list.length} application${list.length===1?'':'s'}.`)}
+function exportFilteredApplications(){exportApplications(filtered(),'Tarai_Gold_Applications_Filtered.csv')}
+function exportAllApplications(){exportApplications([...apps],'Tarai_Gold_Applications_All.csv')}
+$('exportFilteredBtn').onclick=exportFilteredApplications;$('exportAllBtn').onclick=exportAllApplications;$('exportBtn').onclick=exportFilteredApplications;
+function toast(m){$('toast').textContent=m;$('toast').classList.add('show');clearTimeout(window.__t);window.__t=setTimeout(()=>$('toast').classList.remove('show'),3500)}
+async function saveStatusAndRefresh(){render()}
+function showDataError(message){let box=$('dataError');if(!box){box=document.createElement('div');box.id='dataError';box.style.cssText='margin:0 0 18px;padding:14px 16px;border:1px solid #f2b8b5;background:#fff4f3;color:#9d2c24;border-radius:12px;font-size:13px;line-height:1.5;';const workspace=document.querySelector('.workspace');workspace.parentNode.insertBefore(box,workspace)}box.innerHTML='<strong>Applications could not be loaded.</strong><br>'+esc(message)+'<br><button id="retryApps" style="margin-top:10px;border:0;border-radius:8px;padding:8px 12px;background:#173f2b;color:#fff;cursor:pointer">Retry</button>';$('retryApps').onclick=startApplicantListener}
+function clearDataError(){const box=$('dataError');if(box)box.remove()}
+async function startApplicantListener(){
+  if(!window.hrFirebase?.ready||!window.hrFirebase?.db||!window.hrFirebase?.user){
+    console.warn('Applicant load skipped: HR Firebase/auth is not ready yet.');
+    return;
+  }
+  if(unsubscribeApplicants)unsubscribeApplicants();
+  apps=[];
+  clearDataError();
+  render();
+  try{
+    const applicantsRef=collection(window.hrFirebase.db,'applicants');
+    const testSnap=await getDocs(applicantsRef);
+    apps=testSnap.docs.map(d=>normalizeApplicant(d.id,d.data()));
+    apps.sort((a,b)=>new Date(b.appliedAt?.toDate?b.appliedAt.toDate():b.appliedAt||0)-new Date(a.appliedAt?.toDate?a.appliedAt.toDate():a.appliedAt||0));
+    populateFilterOptions();
+    render();
+    renderRecentApplications();
+    renderReports();
+    startAuditLogListener();
+
+    unsubscribeApplicants=onSnapshot(applicantsRef,snapshot=>{
+      apps=snapshot.docs.map(d=>normalizeApplicant(d.id,d.data()));
+      apps.sort((a,b)=>new Date(b.appliedAt?.toDate?b.appliedAt.toDate():b.appliedAt||0)-new Date(a.appliedAt?.toDate?a.appliedAt.toDate():a.appliedAt||0));
+      clearDataError();
+      populateFilterOptions();
+      render();
+      renderRecentApplications();
+      renderReports();
+    },error=>{
+      console.error('Applicant realtime listener failed:',error);
+      showDataError((error.code||'unknown')+' — '+(error.message||'Firestore returned an error.'));
+    });
+  }catch(error){
+    console.error('Applicant initial read failed:',error);
+    apps=[];
+    populateFilterOptions();
+    render();
+    showDataError((error.code||'unknown')+' — '+(error.message||'Could not read applicants.'));
+  }
+}
+window.callApp=callApp;window.waApp=waApp;window.mailApp=mailApp;window.openApplicant=openApplicant;window.startApplicantListener=startApplicantListener;window.openSchedule=openSchedule;
+function renderDeletedRecords(){
+  const el=$('deletedRecordsList');
+  if(!el)return;
+  const list=[...auditLogs].sort((a,b)=>timestampDate(b.deletedAt)-timestampDate(a.deletedAt));
+  el.innerHTML=list.length?list.map(x=>`<div class="deleted-modal-item"><div><strong>${esc(x.candidateName||'Unnamed applicant')}</strong><span>Deleted by <b>${esc(x.deletedByName||x.deletedByEmail||'Unknown HR user')}</b>${x.deletedByDesignation?' · '+esc(x.deletedByDesignation):''}<br>${esc(x.position||'—')} · ${esc(x.headquarter||'—')}${x.state?', '+esc(x.state):''}</span></div><div class="deleted-modal-meta">${esc(formatAuditDate(x.deletedAt))}</div></div>`).join(''):`<div class="deleted-empty">No deleted applications have been recorded.</div>`;
+}
+function startAuditLogListener(){
+  if(!window.hrFirebase?.ready||!window.hrFirebase?.db||!window.hrFirebase?.user)return;
+  if(unsubscribeAuditLogs)unsubscribeAuditLogs();
+  const ref=collection(window.hrFirebase.db,'auditLogs');
+  unsubscribeAuditLogs=onSnapshot(ref,snapshot=>{
+    auditLogs=snapshot.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.action==='DELETE_APPLICATION');
+    renderDeletedRecords();
+  },error=>{
+    console.error('Audit log listener failed:',error);
+    auditLogs=[];
+    renderDeletedRecords();
+  });
+}
+function renderRecentApplications(){const el=$('recentApplications');if(!el)return;const list=[...apps].slice(0,6);el.innerHTML=list.length?list.map(a=>`<div class="recent-item"><div><strong>${esc(a.name)}</strong><span>${esc(a.position)} · ${esc(a.hq)}</span></div><span class="recent-date">${esc(a.date)}</span><button class="btn" onclick="openApplicant('${esc(a.id)}')">View</button></div>`).join(''):`<div class="interview-empty">No applications loaded yet.</div>`}
+function renderDashboardFocus(){
+  const upcomingEl=$('dashboardUpcomingInterviews'),pipelineEl=$('dashboardPipeline');
+  if(!upcomingEl||!pipelineEl)return;
+  const now=new Date();
+  const upcoming=interviews.filter(i=>i.status==='Scheduled'&&interviewDateTime(i)>=now).sort((a,b)=>interviewDateTime(a)-interviewDateTime(b)).slice(0,5);
+  upcomingEl.innerHTML=upcoming.length?upcoming.map(i=>{
+    const d=interviewDateTime(i);const dateLabel=d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'});const timeLabel=i.interviewTime||d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+    return `<div class="focus-item"><div class="focus-time">${esc(timeLabel)}<span>${esc(dateLabel)}</span></div><div class="focus-main"><strong>${esc(i.candidateName||'Candidate')}</strong><span>${esc(i.position||'Interview')} · ${esc(i.headquarter||i.state||'')}</span></div><button class="btn" onclick="openInterviewDetail('${esc(i.id)}')">View</button></div>`;
+  }).join(''):`<div class="focus-empty">No upcoming interviews scheduled.</div>`;
+  const order=['New','Under Review','Shortlisted','Interview Scheduled','Interview Completed','Selected','Rejected'];
+  const counts={};apps.forEach(a=>counts[a.status]=(counts[a.status]||0)+1);const max=Math.max(1,...order.map(k=>counts[k]||0));
+  pipelineEl.innerHTML=order.map(k=>`<div class="pipeline-mini-row"><span class="pipeline-mini-label">${esc(k)}</span><div class="pipeline-mini-track"><div class="pipeline-mini-fill" style="width:${Math.round(((counts[k]||0)/max)*100)}%"></div></div><span class="pipeline-mini-count">${counts[k]||0}</span></div>`).join('');
+}
+
+function renderReports(){const counts={};apps.forEach(a=>counts[a.status]=(counts[a.status]||0)+1);const scheduled=interviews.filter(i=>i.status==='Scheduled').length,completed=interviews.filter(i=>i.status==='Completed').length,cancelled=interviews.filter(i=>i.status==='Cancelled').length,total=apps.length;const selected=apps.filter(a=>a.status==='Selected').length;const cards=[['Applications',total,'Total received'],['New',counts['New']||0,'Awaiting review'],['Shortlisted',counts['Shortlisted']||0,'Ready for interview'],['Selected',selected,'Selected candidates']];$('reportCards').innerHTML=cards.map(x=>`<div class="report-card"><span>${x[0]}</span><strong>${x[1]}</strong><small>${x[2]}</small></div>`).join('');const order=['New','Under Review','Shortlisted','Interview Scheduled','Interview Completed','Selected','Rejected'];const max=Math.max(1,total);$('pipelineRows').innerHTML=order.map(k=>`<div class="pipeline-row"><span class="pipeline-label">${k}</span><div class="pipeline-track"><div class="pipeline-fill" style="width:${Math.round(((counts[k]||0)/max)*100)}%"></div></div><span class="pipeline-count">${counts[k]||0}</span></div>`).join('');const itTotal=scheduled+completed+cancelled;const imax=Math.max(1,itTotal);$('interviewReportRows').innerHTML=[['Scheduled',scheduled],['Completed',completed],['Cancelled',cancelled]].map(x=>`<div class="pipeline-row"><span class="pipeline-label">${x[0]}</span><div class="pipeline-track"><div class="pipeline-fill" style="width:${Math.round((x[1]/imax)*100)}%"></div></div><span class="pipeline-count">${x[1]}</span></div>`).join('')}
+function getIndiaGreeting(){
+  const hour=Number(new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',hour12:false}).format(new Date()));
+  if(hour>=5 && hour<12)return 'Good morning';
+  if(hour>=12 && hour<17)return 'Good afternoon';
+  return 'Good evening';
+}
+function updateDashboardGreeting(){
+  const p=window.hrFirebase?.profile||{};
+  const u=window.hrFirebase?.user||{};
+  const name=(p.name||u.email||'').trim();
+  const greeting=getIndiaGreeting();
+  const el=$('dashboardGreeting');
+  if(el)el.textContent=name?`${greeting}, ${name}`:greeting;
+}
+function renderSettings(){const p=window.hrFirebase?.profile||{},u=window.hrFirebase?.user||{};$('settingsName').textContent=p.name||u.email||'HR User';$('settingsEmail').textContent=u.email||'—';$('settingsRole').textContent=p.designation||p.role||'Authorized User'}
+function openPasswordModal(){
+  $('passwordForm').reset();$('passwordError').style.display='none';$('passwordStrengthBar').style.width='0';$('passwordHint').textContent='Use at least 8 characters with a mix of letters and numbers.';
+  $('passwordOverlay').classList.add('show');$('passwordOverlay').setAttribute('aria-hidden','false');setTimeout(()=>$('currentPassword').focus(),80)
+}
+function closePasswordModal(){$('passwordOverlay').classList.remove('show');$('passwordOverlay').setAttribute('aria-hidden','true');$('passwordForm').reset();$('passwordError').style.display='none';$('passwordStrengthBar').style.width='0'}
+function passwordError(message){$('passwordError').textContent=message;$('passwordError').style.display='block'}
+function passwordStrength(value){
+  let score=0;if(value.length>=8)score++;if(/[A-Z]/.test(value))score++;if(/[a-z]/.test(value))score++;if(/\d/.test(value))score++;if(/[^A-Za-z0-9]/.test(value))score++;
+  const width=[0,20,40,60,80,100][score];$('passwordStrengthBar').style.width=width+'%';
+  $('passwordStrengthBar').style.background=score<=2?'#c9483e':score===3?'#a77a00':'#4a9b63';
+  $('passwordHint').textContent=!value?'Use at least 8 characters with a mix of letters and numbers.':score<=2?'Weak password — add more characters, numbers and symbols.':score===3?'Good password — adding a symbol can make it stronger.':'Strong password.';
+}
+async function changePassword(){
+  const user=window.hrFirebase?.user;
+  if(!user||!user.email){passwordError('Your authenticated session is not available. Please sign in again.');return}
+  // Firebase Auth handles the password change. No password is written to Firestore.
+  const currentPassword=$('currentPassword').value,newPassword=$('newPassword').value,confirmPassword=$('confirmPassword').value;
+  if(!currentPassword||!newPassword||!confirmPassword){passwordError('Please complete all password fields.');return}
+  if(newPassword.length<8){passwordError('Your new password must contain at least 8 characters.');return}
+  if(newPassword===currentPassword){passwordError('Your new password must be different from your current password.');return}
+  if(newPassword!==confirmPassword){passwordError('The new password and confirmation do not match.');return}
+  const button=$('savePassword');button.disabled=true;button.textContent='Updating…';$('passwordError').style.display='none';
+  try{
+    const credential=EmailAuthProvider.credential(user.email,currentPassword);
+    await reauthenticateWithCredential(user,credential);
+    await updatePassword(user,newPassword);
+    closePasswordModal();toast('Password updated successfully.');
+  }catch(e){
+    console.error('Password update failed:',e);
+    const code=e?.code||'';
+    const message=code==='auth/wrong-password'||code==='auth/invalid-credential'?'The current password is incorrect.':code==='auth/weak-password'?'The new password is too weak.':code==='auth/too-many-requests'?'Too many attempts. Please wait and try again.':code==='auth/requires-recent-login'?'For security, please sign out and sign in again before changing your password.':'Could not update the password. Please check your current password and try again.';
+    passwordError(message);
+  }finally{button.disabled=false;button.textContent='Update password'}
+}
+function exportFullReport(){const rows=[['Metric','Value'],['Total applications',apps.length],['New',apps.filter(a=>a.status==='New').length],['Under Review',apps.filter(a=>a.status==='Under Review').length],['Shortlisted',apps.filter(a=>a.status==='Shortlisted').length],['Interview Scheduled',apps.filter(a=>a.status==='Interview Scheduled').length],['Interview Completed',apps.filter(a=>a.status==='Interview Completed').length],['Selected',apps.filter(a=>a.status==='Selected').length],['Rejected',apps.filter(a=>a.status==='Rejected').length],['Scheduled interviews',interviews.filter(i=>i.status==='Scheduled').length],['Completed interviews',interviews.filter(i=>i.status==='Completed').length],['Cancelled interviews',interviews.filter(i=>i.status==='Cancelled').length]];const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');const blob=new Blob([csv],{type:'text/csv'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Tarai_Gold_Recruitment_Report.csv';a.click();URL.revokeObjectURL(url)}
+
+/* ===== THEME + RESPONSIVE NAVIGATION ===== */
+(function initThemeAndMobileNav(){
+  const savedTheme=localStorage.getItem('tg_hr_theme');
+  if(savedTheme==='dark')document.body.classList.add('dark-mode');
+  const themeBtn=$('themeToggle');
+  if(themeBtn)themeBtn.addEventListener('click',()=>{
+    const dark=document.body.classList.toggle('dark-mode');
+    localStorage.setItem('tg_hr_theme',dark?'dark':'light');
+    themeBtn.setAttribute('aria-pressed',dark?'true':'false');
+    themeBtn.title=dark?'Switch to light mode':'Switch to dark mode';
+  });
+  const sidebar=document.querySelector('.sidebar'),overlay=document.getElementById('mobileOverlay'),menu=$('mobileMenuBtn');
+  const closeDrawer=()=>{sidebar?.classList.remove('open');overlay?.classList.remove('show');menu?.setAttribute('aria-expanded','false');overlay?.setAttribute('aria-hidden','true')};
+  const openDrawer=()=>{sidebar?.classList.add('open');overlay?.classList.add('show');menu?.setAttribute('aria-expanded','true');overlay?.setAttribute('aria-hidden','false')};
+  menu?.addEventListener('click',()=>sidebar?.classList.contains('open')?closeDrawer():openDrawer());
+  overlay?.addEventListener('click',closeDrawer);
+  document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{if(window.innerWidth<=850)closeDrawer()}));
+  window.addEventListener('resize',()=>{if(window.innerWidth>850)closeDrawer()});
+})();
+$('changePasswordBtn').onclick=openPasswordModal;$('closePassword').onclick=closePasswordModal;$('cancelPassword').onclick=closePasswordModal;$('passwordOverlay').addEventListener('click',e=>{if(e.target===$('passwordOverlay'))closePasswordModal()});document.querySelectorAll('.password-toggle').forEach(b=>b.addEventListener('click',()=>{const input=$(b.dataset.target);const show=input.type==='password';input.type=show?'text':'password';b.textContent=show?'Hide':'Show';b.setAttribute('aria-label',show?'Hide password':'Show password')}));$('newPassword').addEventListener('input',e=>passwordStrength(e.target.value));$('passwordForm').addEventListener('submit',e=>{e.preventDefault();changePassword()});
+$('calendarPrev').onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()-1,1);renderInterviewCalendar()};$('calendarNext').onclick=()=>{calendarMonth=new Date(calendarMonth.getFullYear(),calendarMonth.getMonth()+1,1);renderInterviewCalendar()};$('calendarToday').onclick=()=>{const n=new Date();calendarMonth=new Date(n.getFullYear(),n.getMonth(),1);renderInterviewCalendar()};
+$('exportFullReport').onclick=exportFullReport;
+function setPage(page){const sections={dashboard:'dashboardPage',applications:'applicationsPage',interviews:'interviewWorkspace',reports:'reportsPage',settings:'settingsPage'};Object.values(sections).forEach(id=>$(id)?.classList.remove('is-active'));$(sections[page])?.classList.add('is-active');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const crumb=document.querySelector('.crumb');crumb.innerHTML=`Recruitment <b>/ ${page.charAt(0).toUpperCase()+page.slice(1)}</b>`;window.scrollTo({top:0,behavior:'smooth'});if(page==='dashboard'){startApplicantListener();startAuditLogListener();loadInterviews()}if(page==='applications'){startApplicantListener();startAuditLogListener();}if(page==='interviews')loadInterviews();if(page==='reports'){renderReports();loadInterviews();}if(page==='settings')renderSettings()}
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.page)));
+document.querySelectorAll('.quick-card').forEach(b=>b.addEventListener('click',()=>setPage(b.dataset.go)));
+$('deletedRecordsBtn').onclick=()=>{$('deletedRecordsOverlay').classList.add('show');$('deletedRecordsOverlay').setAttribute('aria-hidden','false');renderDeletedRecords()};$('closeDeletedRecords').onclick=()=>{$('deletedRecordsOverlay').classList.remove('show');$('deletedRecordsOverlay').setAttribute('aria-hidden','true')};$('deletedRecordsOverlay').addEventListener('click',e=>{if(e.target.id==='deletedRecordsOverlay')$('closeDeletedRecords').click()});$('dashboardApplicationsBtn').onclick=()=>setPage('applications');$('dashboardInterviewsBtn').onclick=()=>setPage('interviews');$('dashboardPipelineBtn').onclick=()=>setPage('applications');$('dashboardRecentRefresh').onclick=()=>{renderRecentApplications();renderDashboardFocus()};$('settingsRefresh').onclick=()=>{startApplicantListener();loadInterviews();toast('Dashboard data refreshed.')};$('settingsLogout').onclick=()=>document.getElementById('logoutBtn').click();
+$('allAppsBtn').onclick=()=>setPage('applications');
+let __applicantLoadStarted=false;
+window.addEventListener('hr-authorized',()=>{
+  if(__applicantLoadStarted)return;
+  if(window.hrFirebase?.ready&&window.hrFirebase?.user){
+    __applicantLoadStarted=true;
+    startApplicantListener();
+    loadInterviews();
+    renderDashboardFocus();
+  }
+});
+</script>
+<script src="premium.js" defer></script>
+</body></html>
+
+<!-- Tarai Gold HR Dashboard v21: final UI, responsive, dark mode and security refinement -->

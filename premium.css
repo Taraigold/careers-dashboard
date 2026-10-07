@@ -1,0 +1,91 @@
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700&display=swap');
+/* Tarai Gold - fertilizer-industry skin. Visual only: no markup, IDs or logic are touched. Dashboard keeps the original Poppins font. */
+body,body.dark-mode{--ink:#12391f;--ink2:#5d6f62;--sun:#F8EC36;--sun2:#E4D52C;--leaf:#3FA66A;--g-bg:rgba(255,255,255,.66);--g-brd:rgba(255,255,255,.85);--g-sh:0 10px 34px rgba(18,57,31,.08),inset 0 1px 0 rgba(255,255,255,.95);--bg:#EEF4EA;--line:rgba(18,57,31,.10);--pale:#E3F0E2;--shadow:0 10px 34px rgba(18,57,31,.07)}
+body.dark-mode{--ink:#EAF5EC;--ink2:#9fb3a5;--g-bg:rgba(22,42,32,.6);--g-brd:rgba(255,255,255,.09);--g-sh:0 14px 44px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.06);--bg:#09130E;--line:rgba(255,255,255,.09);--pale:#1b3427}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(620px 440px at 4% 0%,rgba(248,236,54,.26),transparent 70%),radial-gradient(760px 540px at 100% 8%,rgba(63,166,106,.22),transparent 70%),radial-gradient(700px 500px at 55% 110%,rgba(120,180,90,.18),transparent 70%)}
+body.dark-mode::before{background:radial-gradient(600px 420px at 6% 0%,rgba(248,236,54,.08),transparent 70%),radial-gradient(700px 520px at 98% 10%,rgba(63,166,106,.16),transparent 70%)}
+body .main,body .content,body.dark-mode .main,body.dark-mode .content{background:transparent}
+body .kpi,body.dark-mode .kpi,body .workspace,body.dark-mode .workspace,body .overview-card,body.dark-mode .overview-card,body .focus-card,body.dark-mode .focus-card,body .report-panel,body.dark-mode .report-panel,body .report-card,body.dark-mode .report-card,body .settings-card,body.dark-mode .settings-card,body .interview-stat,body.dark-mode .interview-stat,body .interview-table-wrap,body.dark-mode .interview-table-wrap,body .calendar-panel,body.dark-mode .calendar-panel{background:radial-gradient(340px circle at var(--mx,50%) var(--my,0%),rgba(248,236,54,var(--ga,0)),transparent 62%),var(--g-bg);border:1px solid var(--g-brd);box-shadow:var(--g-sh);backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border-radius:20px;color:var(--text)}
+body .kpi:hover,body.dark-mode .kpi:hover,body .workspace:hover,body.dark-mode .workspace:hover,body .overview-card:hover,body.dark-mode .overview-card:hover,body .focus-card:hover,body.dark-mode .focus-card:hover,body .report-panel:hover,body.dark-mode .report-panel:hover,body .report-card:hover,body.dark-mode .report-card:hover,body .settings-card:hover,body.dark-mode .settings-card:hover,body .interview-stat:hover,body.dark-mode .interview-stat:hover,body .interview-table-wrap:hover,body.dark-mode .interview-table-wrap:hover,body .calendar-panel:hover,body.dark-mode .calendar-panel:hover{--ga:.22}
+body .overview-head h3,body.dark-mode .overview-head h3,body .focus-head h3,body.dark-mode .focus-head h3,body .settings-card h3,body.dark-mode .settings-card h3,body .page-title h2,body.dark-mode .page-title h2,body .interview-head h2,body.dark-mode .interview-head h2,body .report-card strong,body.dark-mode .report-card strong,body .interview-stat strong,body.dark-mode .interview-stat strong,body .quick-card strong,body.dark-mode .quick-card strong,body .recent-item strong,body.dark-mode .recent-item strong,body .focus-main strong,body.dark-mode .focus-main strong,body .focus-time,body.dark-mode .focus-time,body .pipeline-mini-count,body.dark-mode .pipeline-mini-count,body .setting-row b,body.dark-mode .setting-row b,body .cand b,body.dark-mode .cand b,body .interview-candidate .cand b,body.dark-mode .interview-candidate .cand b,body .calendar-title h3,body.dark-mode .calendar-title h3,body .interview-date,body.dark-mode .interview-date,body .modal-title h2,body.dark-mode .modal-title h2,body .schedule-head h2,body.dark-mode .schedule-head h2,body .invite-head h2,body.dark-mode .invite-head h2,body .outcome-head h2,body.dark-mode .outcome-head h2,body .password-head h2,body.dark-mode .password-head h2,body .kpi strong,body.dark-mode .kpi strong{color:var(--ink)}
+.eyebrow{color:var(--leaf)}
+/* hero: crop-field contour lines */
+body .hero,body.dark-mode .hero{position:relative;overflow:hidden;padding:30px 34px;border-radius:24px;margin-bottom:22px;align-items:center;color:#fff;background:radial-gradient(420px 240px at 92% -10%,rgba(248,236,54,.55),transparent 68%),repeating-radial-gradient(circle at 88% 120%,transparent 0 26px,rgba(255,255,255,.07) 26px 27px),linear-gradient(115deg,#0F3A25,#1B6B3A 62%,#3FA66A);box-shadow:0 22px 50px rgba(18,57,31,.22),inset 0 1px 0 rgba(255,255,255,.18)}
+.hero>*{position:relative;z-index:1}
+body .hero h1,body.dark-mode .hero h1{color:#fff}
+.hero p{color:rgba(255,255,255,.8)}
+.hero .eyebrow{color:var(--sun)}
+.hero .btn{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);backdrop-filter:blur(10px)}
+.hero .btn.primary{background:linear-gradient(135deg,#F8EC36,#E4D52C);color:#12391f;border-color:transparent;box-shadow:0 8px 22px rgba(248,236,54,.35)}
+.hero .btn.primary:hover{background:linear-gradient(135deg,#FFF566,#EBDD3A);box-shadow:0 12px 28px rgba(248,236,54,.5)}
+/* KPIs */
+.kpis{gap:16px}
+body .kpi{padding:19px;min-height:124px;animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.kpi:nth-child(2){animation-delay:.06s}.kpi:nth-child(3){animation-delay:.12s}.kpi:nth-child(4){animation-delay:.18s}.kpi:nth-child(5){animation-delay:.24s}
+.kpi:after{width:110px;height:110px;right:-40px;top:-46px;background:radial-gradient(circle,rgba(63,166,106,.26),transparent 70%)}
+.kpi:nth-child(2):after,.kpi:nth-child(5):after{background:radial-gradient(circle,rgba(248,236,54,.5),transparent 70%)}
+.kpi-icon{background:linear-gradient(145deg,#F8EC36,#E4D52C);color:#12391f;box-shadow:0 5px 12px rgba(200,190,30,.3)}
+.kpi:nth-child(odd) .kpi-icon{background:linear-gradient(145deg,#3FA66A,#14502f);color:#fff;box-shadow:0 5px 12px rgba(20,80,47,.3)}
+body .kpi strong{font-size:30px}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}}
+/* sidebar + top bar */
+body .sidebar{background:radial-gradient(240px 200px at 0% 100%,rgba(63,166,106,.25),transparent 70%),linear-gradient(180deg,#0E3322,#082016)}
+body .nav button:hover{background:rgba(255,255,255,.07)}
+body .nav button.active{background:linear-gradient(90deg,rgba(248,236,54,.17),rgba(248,236,54,.02));border-color:rgba(248,236,54,.2);box-shadow:inset 3px 0 0 var(--sun)}
+body .top,body.dark-mode .top{background:rgba(255,255,255,.6);backdrop-filter:blur(20px) saturate(160%);border-bottom:1px solid var(--g-brd)}
+body.dark-mode .top{background:rgba(9,19,14,.6)}
+body .avatar,body .photo{background:linear-gradient(145deg,#F8EC36,#E4D52C);color:#12391f}
+body .icon-btn,body.dark-mode .icon-btn{background:var(--g-bg);border-color:var(--g-brd);color:var(--ink)}
+/* buttons + inputs */
+body .btn{border-radius:11px;background:var(--g-bg);color:var(--ink);border-color:var(--line)}
+body.dark-mode .btn{background:rgba(255,255,255,.06)}
+body .btn.primary,body.dark-mode .btn.primary,body .page-btn.active{background:linear-gradient(135deg,#1B6B3A,#0F3A25);color:#fff;border-color:transparent;box-shadow:0 8px 20px rgba(18,57,31,.25),inset 0 1px 0 rgba(255,255,255,.18)}
+body .btn.primary:hover{background:linear-gradient(135deg,#238147,#12452c);box-shadow:0 10px 26px rgba(18,57,31,.32),0 0 0 3px rgba(248,236,54,.3)}
+body .btn.soft{background:rgba(248,236,54,.32);color:var(--ink)}
+body .select,body .search input,body .date-filter,body.dark-mode .select,body.dark-mode .search input,body.dark-mode .date-filter{background:var(--g-bg);border-color:var(--line);color:var(--text)}
+:focus-visible{outline:2px solid var(--leaf);outline-offset:2px}
+.search input:focus,.select:focus,.schedule-field input:focus,.schedule-field select:focus{border-color:var(--leaf);box-shadow:0 0 0 4px rgba(248,236,54,.35)}
+/* tables + lists */
+body .toolbar,body.dark-mode .toolbar{background:transparent}
+body .table th,body .interview-table th{background:rgba(18,57,31,.045);color:var(--ink2)}
+body.dark-mode .table th,body.dark-mode .interview-table th{background:rgba(255,255,255,.04)}
+body .table td,body .interview-table td{border-color:var(--line)}
+body .table tbody tr:hover,body .interview-table tbody tr:hover,body.dark-mode .table tbody tr:hover{background:linear-gradient(90deg,rgba(248,236,54,.2),transparent 55%);box-shadow:inset 3px 0 0 var(--leaf)}
+body .quick-card,body .focus-item,body .recent-item,body .info,body .detail-card,body .doc,body .history-card,body .audit-card{background:rgba(255,255,255,.55);border:1px solid var(--g-brd);border-radius:15px}
+body.dark-mode .quick-card,body.dark-mode .focus-item,body.dark-mode .recent-item,body.dark-mode .info,body.dark-mode .detail-card{background:rgba(255,255,255,.04)}
+body .quick-card:hover{border-color:rgba(63,166,106,.6);background:linear-gradient(145deg,rgba(248,236,54,.25),rgba(255,255,255,.7));transform:translateY(-3px);box-shadow:0 14px 30px rgba(18,57,31,.1)}
+.quick-card b{color:var(--leaf)}
+.quick-card span,.recent-item span,.focus-main span{color:var(--ink2)}
+.pipeline-mini-track,.pipeline-track{background:rgba(18,57,31,.08);height:9px}
+.pipeline-mini-fill,.pipeline-fill{background:linear-gradient(90deg,#2E8B57,#9ACD4A 70%,#F8EC36)}
+.settings-icon,.settings-role{background:linear-gradient(145deg,#F8EC36,#E4D52C);color:#12391f}
+.calendar-day{background:transparent}.calendar-day.today{background:rgba(248,236,54,.22)}
+/* modals + toast */
+body .modal,body .schedule-modal,body .invite-modal,body .outcome-modal,body .interview-detail-modal,body .password-modal{background:rgba(255,255,255,.93);backdrop-filter:blur(24px) saturate(160%);border:1px solid var(--g-brd);border-radius:24px}
+body.dark-mode .modal,body.dark-mode .schedule-modal,body.dark-mode .invite-modal,body.dark-mode .outcome-modal,body.dark-mode .interview-detail-modal,body.dark-mode .password-modal{background:rgba(16,32,24,.92)}
+body .modal-head,body .schedule-head,body .invite-head,body .outcome-head,body .password-head{background:transparent}
+.overlay.show .modal,.schedule-overlay.show .schedule-modal,.invite-overlay.show .invite-modal,.outcome-overlay.show .outcome-modal,.interview-detail-overlay.show .interview-detail-modal,.password-overlay.show .password-modal{animation:pop .28s cubic-bezier(.2,.8,.2,1)}
+@keyframes pop{from{opacity:0;transform:translateY(12px) scale(.97)}}
+body .toast{background:rgba(8,32,21,.94);border-left:4px solid var(--sun)}
+/* login */
+body .login-gate,body.dark-mode .login-gate{background:radial-gradient(520px 360px at 12% 8%,rgba(248,236,54,.28),transparent 70%),repeating-radial-gradient(circle at 85% 115%,transparent 0 30px,rgba(255,255,255,.05) 30px 31px),linear-gradient(135deg,#082016,#14502f 70%,#1d6b3d)}
+body .login-card,body.dark-mode .login-card{background:rgba(6,26,16,.58);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(22px) saturate(150%);box-shadow:0 36px 90px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.18)}
+body .login-logo,body.dark-mode .login-logo{background:none;border:0;box-shadow:none;padding:0;border-radius:0}
+body .login-title,body.dark-mode .login-title{color:#ffffff;font-family:'Bricolage Grotesque',Poppins,sans-serif;font-weight:700}
+body .login-kicker{color:rgb(21, 113, 7)}
+body .login-sub,body .login-note,body.dark-mode .login-sub,body.dark-mode .login-note{color:rgb(255, 255, 255)}
+body .login-field label,body.dark-mode .login-field label{color:#fff}
+body .login-field input,body.dark-mode .login-field input{background:#0B2A1A;border:1px solid rgba(255,255,255,.22);color:#fff;-webkit-text-fill-color:#fff;caret-color:var(--sun)}
+.login-field input::placeholder{color:rgba(255,255,255,.5);-webkit-text-fill-color:rgba(255,255,255,.5)}
+.login-field input:-webkit-autofill,.login-field input:-webkit-autofill:hover,.login-field input:-webkit-autofill:focus{-webkit-text-fill-color:#fff;caret-color:#fff;-webkit-box-shadow:0 0 0 1000px #0B2A1A inset;transition:background-color 9999s}
+body .login-field input:focus{border-color:var(--sun);box-shadow:0 0 0 4px rgba(248,236,54,.22)}
+body .login-btn{background:linear-gradient(135deg,#F8EC36,#E4D52C);color:#12391f;border:0;font-weight:700;box-shadow:0 10px 26px rgba(248,236,54,.3)}
+body .login-btn:hover{background:linear-gradient(135deg,#FFF566,#EBDD3A);box-shadow:0 14px 32px rgba(248,236,54,.45)}
+@media(max-width:700px){body .hero,body.dark-mode .hero{padding:22px}body .kpi strong{font-size:26px}body .interview-table-wrap,body.dark-mode .interview-table-wrap{background:none;border:0;box-shadow:none;backdrop-filter:none}}
+@media(prefers-reduced-motion:reduce){.kpi{animation:none!important}}
+/* login refinements: inputs never turn white; yellow-green glow at the top */
+body .login-field input:hover,body.dark-mode .login-field input:hover{background:#0B2A1A;color:#fff;-webkit-text-fill-color:#fff;border-color:rgba(255,255,255,.4)}
+body .login-field input:focus,body.dark-mode .login-field input:focus{background:#0B2A1A;color:#fff;-webkit-text-fill-color:#fff;border-color:var(--sun)}
+body .login-gate,body.dark-mode .login-gate{background:radial-gradient(900px 380px at 50% -8%,rgba(248,236,54,.45),rgba(154,205,74,.22) 45%,transparent 72%),radial-gradient(520px 360px at 12% 8%,rgba(248,236,54,.16),transparent 70%),repeating-radial-gradient(circle at 85% 115%,transparent 0 30px,rgba(255,255,255,.05) 30px 31px),linear-gradient(135deg,#082016,#14502f 70%,#1d6b3d)}
+body .login-card,body.dark-mode .login-card{background:linear-gradient(180deg,rgb(248, 235, 54) 0,rgb(255, 238, 7) 150px,rgb(43, 108, 17) 280px,rgba(6,26,16,0) 420px),rgba(6,26,16,.62)}
+body .login-card:before,body.dark-mode .login-card:before{height:5px;background:linear-gradient(90deg,#3FA66A,#F8EC36 50%,#9ACD4A)}
