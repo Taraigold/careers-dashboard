@@ -1,0 +1,15 @@
+
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.taraigold.hrdashboard",
+      "sha256_cert_fingerprints": [
+        "74:C0:A9:BC:D0:AE:0C:E6:43:BD:2F:5C:79:87:5C:D4:9D:1F:35:45:CA:A7:FE:AA:84:09:35:9E:5D:B7:53:C9"
+      ]
+    }
+  }
+]
